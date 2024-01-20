@@ -1,4 +1,4 @@
-Chatsounds based on https://github.com/incognico/svencoop-plugins/blob/master/twlz/ChatSounds.as
+ChatSounds is a heavily modified version of incognico's script https://github.com/incognico/svencoop-plugins/blob/master/twlz/ChatSounds.as
 
 RTV is a fixed version of incognico's script https://github.com/incognico/svencoop-plugins/tree/master
 
