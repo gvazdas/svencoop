@@ -8,6 +8,8 @@ const string g_SpriteName = 'sprites/bubble.spr';
 dictionary g_SoundList;
 dictionary g_ChatTimes;
 dictionary g_Volumes;
+int numplayers = 0;
+bool all_volumes_1 = true; //track if all connected players .csvolume is 1
 
 array<string> @g_SoundListKeys;
 
@@ -16,14 +18,33 @@ CClientCommand g_ListSounds("listsounds", "List all chat sounds", @listsounds);
 CClientCommand g_CSVolume("csvolume", "Set volume (0-1) for all chat sounds", @csvolume);
 //CClientCommand g_CSClear("csclear", "Stop all chatsounds", @csclear);
 
+void PluginInit()
+{
+  g_Module.ScriptInfo.SetAuthor("incognico,gvazdas");
+  g_Module.ScriptInfo.SetContactInfo("https://discord.gg/qfZxWAd,https://knockout.chat/user/3022");
+
+  g_Hooks.RegisterHook(Hooks::Player::ClientSay, @ClientSay);
+  g_Hooks.RegisterHook(Hooks::Player::ClientPutInServer, @ClientPutInServer);
+  g_Hooks.RegisterHook(Hooks::Player::ClientDisconnect, @ClientDisconnect);
+
+  ReadSounds();
+  Getnumplayers();
+  CheckAllVolumes();
+}
+
 void cs(const CCommand@ pArgs)
 {
     CBasePlayer@ pPlayer = g_ConCommandSystem.GetCurrentPlayer();
     g_PlayerFuncs.SayText(pPlayer, "[chatsounds] To control pitch, say trigger pitch. For example, tom 150" + "\n");
     g_PlayerFuncs.SayText(pPlayer, "[chatsounds] To hide chatsounds text, add ' s'. For example, tom s or tom ? s" + "\n");
     g_PlayerFuncs.SayText(pPlayer, "[chatsounds] Other console commands: .listsounds .csvolume" + "\n");
+    g_PlayerFuncs.ClientPrint(pPlayer, HUD_PRINTCONSOLE, "[chatsounds] version 2024-01-21\n");
+    g_PlayerFuncs.ClientPrint(pPlayer, HUD_PRINTCONSOLE, "For the latest version go to https://github.com/gvazdas/svencoop\n");
 }
 
+// this does not work if the audio channel is CHAN_AUTO.
+// To have the ability to clear chat sounds you would have to use one of the constant audio channels
+// And that means no overlapping chatsounds.
 //void csclear(const CCommand@ pArgs)
 //{
 //    CBasePlayer@ pPlayer = g_ConCommandSystem.GetCurrentPlayer();
@@ -60,25 +81,15 @@ void csvolume(const CCommand@ pArgs)
        volume=1;
 
     g_Volumes[steamId] = volume;
-    g_PlayerFuncs.SayText(pPlayer, "chatsounds volume set to " + volume + ".\n");
-}
-
-void PluginInit()
-{
-
-  g_Module.ScriptInfo.SetAuthor("incognico,gvazdas");
-  g_Module.ScriptInfo.SetContactInfo("https://discord.gg/qfZxWAd,https://knockout.chat/user/3022");
-
-  g_Hooks.RegisterHook(Hooks::Player::ClientSay, @ClientSay);
-  //g_Hooks.RegisterHook(Hooks::Player::ClientDisconnect, @ClientDisconnect);
-  //g_Hooks.RegisterHook(Hooks::Player::ClientPutInServer, @ClientPutInServer);
-  //g_Hooks.RegisterHook(Hooks::Player::ClientConnected, @ClientConnected);
-
-  ReadSounds();
+    g_PlayerFuncs.SayText(pPlayer, "chatsounds volume set to " + volume + "\n");
+    
+    Getnumplayers();
+    CheckAllVolumes();
 }
 
 void MapInit()
 {
+  
   //g_LatestSounds.deleteAll();
   g_ChatTimes.deleteAll();
   //ReadSounds();
@@ -90,6 +101,10 @@ void MapInit()
 
   g_Game.PrecacheGeneric(g_SpriteName);
   g_Game.PrecacheModel(g_SpriteName);
+  
+  Getnumplayers();
+  CheckAllVolumes();
+  
 }
 
 void ReadSounds()
@@ -165,7 +180,6 @@ HookReturnCode ClientSay(SayParameters@ pParams)
       float t = g_EngineFuncs.Time();
       float d = t - float(g_ChatTimes[steamId]);
       g_ChatTimes[steamId] = t;
-      //g_PlayerFuncs.SayText(pPlayer, string(d) + "\n");
 
       if (d >= g_Delay)
       {
@@ -211,7 +225,6 @@ HookReturnCode ClientSay(SayParameters@ pParams)
             }
             
             string snd_file = string(g_SoundList[soundArg]);
-          
             
             if (soundArg == 'medic' || soundArg == 'meedic') {
               pPlayer.ShowOverheadSprite('sprites/saveme.spr', 51.0f, 5.0f);
@@ -230,23 +243,33 @@ HookReturnCode ClientSay(SayParameters@ pParams)
                 //   i_latest=0;
                 //g_LatestSounds[i_latest]=snd_file;
                 //i_latest+=1;
-            	
-            	for (int i = 1; i <= g_Engine.maxClients; i++)
-            	{
-            		CBasePlayer@ plr_receiving = g_PlayerFuncs.FindPlayerByIndex(i);
-            		
-            		if (plr_receiving is null or !plr_receiving.IsConnected())
-            			continue;
-            		
-            		string plr_receiving_steamId = g_EngineFuncs.GetPlayerAuthId(plr_receiving.edict());
-            		
-            		float localVol = 1.0;
-            		if (g_Volumes.exists(plr_receiving_steamId))
-            		   localVol = float(g_Volumes[plr_receiving_steamId]);
-            		
-            		if (localVol > 0)
-                       g_SoundSystem.PlaySound(pPlayer.edict(), CHAN_AUTO, snd_file, localVol, 0.3f, 0, pitch, plr_receiving.entindex(),true,pPlayer.pev.origin);
+                
+                if (all_volumes_1)
+                   g_SoundSystem.PlaySound(pPlayer.edict(), CHAN_AUTO, snd_file, 1.0f, 0.3f,0, pitch, 0, true, pPlayer.pev.origin);
+                else
+                {
+                	for (int i = 1; i <= numplayers; i++)
+                	{
+                		
+                		CBasePlayer@ plr_receiving = g_PlayerFuncs.FindPlayerByIndex(i);
+                		
+                		if (plr_receiving is null or !plr_receiving.IsConnected())
+                		{  
+                		   g_EngineFuncs.ServerPrint("ChatSounds: " + string(i) + " skipped\n");
+                		   continue;
+                		}
+                		
+                		string plr_receiving_steamId = g_EngineFuncs.GetPlayerAuthId(plr_receiving.edict());
+                		
+                		float localVol = 1.0;
+                		if (g_Volumes.exists(plr_receiving_steamId))
+                		   localVol = float(g_Volumes[plr_receiving_steamId]);
+                		
+                		if (localVol > 0)
+                           g_SoundSystem.PlaySound(pPlayer.edict(), CHAN_AUTO, snd_file, localVol, 0.3f, 0, pitch, plr_receiving.entindex(),true,pPlayer.pev.origin);
+                	}
             	}
+            	
             	pPlayer.ShowOverheadSprite(g_SpriteName, 56.0f, 2.25f);
             
             }
@@ -255,10 +278,54 @@ HookReturnCode ClientSay(SayParameters@ pParams)
       else
       {
          pParams.ShouldHide = true;
-         g_PlayerFuncs.ClientPrint(pPlayer, HUD_PRINTCENTER, "500 000 angry bees are coming for you");
+         string bees = string(Math.RandomLong(100000,999999));
+         bees = bees.SubString(0,3) + " " + bees.SubString(3,3);
+         g_PlayerFuncs.ClientPrint(pPlayer, HUD_PRINTCENTER, bees + " angry bees are coming for you");
          g_PlayerFuncs.ShowMessage(pPlayer, "and they like jazz");
+         //g_AdminControl.SlapPlayer(pPlayer,0.0,0);
       }
     }
   }
   return HOOK_CONTINUE;
+}
+
+HookReturnCode ClientDisconnect(CBasePlayer@ pPlayer)
+{
+  Getnumplayers();
+  CheckAllVolumes();
+  return HOOK_CONTINUE;
+}
+
+HookReturnCode ClientPutInServer(CBasePlayer@ pPlayer)
+{
+  Getnumplayers();
+  CheckAllVolumes();
+  return HOOK_CONTINUE;
+}
+
+void Getnumplayers()
+{
+   numplayers = g_PlayerFuncs.GetNumPlayers();
+}
+
+void CheckAllVolumes()
+{
+   all_volumes_1 = true;
+   if (!g_Volumes.isEmpty() && numplayers>0)
+   {
+      for (int i = 1; i <= numplayers; i++)
+      {
+         CBasePlayer@ pPlayer = g_PlayerFuncs.FindPlayerByIndex(i);
+         if (pPlayer is null or !pPlayer.IsConnected())
+            continue;
+         string steamId = g_EngineFuncs.GetPlayerAuthId(pPlayer.edict());
+         if (float(g_Volumes[steamId])<1)
+         {
+            all_volumes_1 = false;
+            return;
+         }
+      }
+   
+   }
+
 }

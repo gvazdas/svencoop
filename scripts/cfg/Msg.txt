@@ -1,0 +1,2 @@
+To fix sound issues, type 'stopsound' in console.
+To see all chatsounds commands, type '.cs' in console.
