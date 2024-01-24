@@ -18,6 +18,7 @@ Documentation: https://github.com/MrOats/AngelScript_SC_Plugins/wiki/AFKManager.
 const string g_warningsound = "vox/woop.wav";
 array<int> g_WarnIntervals_Sub;
 CClientCommand g_afk("afk", "Print version", @afk);
+CClientCommand g_respawnall("respawnall", "Lets admin respawn all players", @respawnall, ConCommandFlag::AdminOnly);
 
 void PluginInit()
 {
@@ -37,21 +38,26 @@ void PluginInit()
   g_Hooks.RegisterHook(Hooks::Game::MapChange, @MapChange);
 
   @g_ShouldSpec = CCVar("bShouldSpec", true, "Should player be moved to spectate for being AFK?", ConCommandFlag::AdminOnly);
-  @g_SecondsUntilSpec = CCVar("secondsUntilSpec", 10, "Seconds until player should be moved to Spectate for AFK", ConCommandFlag::AdminOnly);
+  @g_SecondsUntilSpec = CCVar("secondsUntilSpec", 120, "Seconds until player should be moved to Spectate for AFK", ConCommandFlag::AdminOnly);
   @g_ShouldKick = CCVar("bShouldKick", true, "Should player be kicked for being AFK?", ConCommandFlag::AdminOnly);
-  @g_SecondsUntilKick = CCVar("secondsUntilKick", 20, "Seconds until player is kicked for AFK", ConCommandFlag::AdminOnly);
+  @g_SecondsUntilKick = CCVar("secondsUntilKick", 1800, "Seconds until player is kicked for AFK", ConCommandFlag::AdminOnly);
   @g_KickAdmins = CCVar("bKickAdmins", false, "Should admins/owners be kicked for being AFK?", ConCommandFlag::AdminOnly);
-  @g_WarnInterval = CCVar("secondsWarnInterval", 2, "How many seconds between AFK warnings", ConCommandFlag::AdminOnly);
+  @g_WarnInterval = CCVar("secondsWarnInterval", 40, "How many seconds between AFK warnings", ConCommandFlag::AdminOnly);
 
 }
 
 dictionary g_ActivityList;
 dictionary g_SecondsTracker;
 
+void respawnall(const CCommand@ pArgs)
+{
+   g_PlayerFuncs.RespawnAllPlayers(false,true);
+}
+
 void afk(const CCommand@ pArgs)
 {
     CBasePlayer@ pPlayer = g_ConCommandSystem.GetCurrentPlayer();
-    g_PlayerFuncs.ClientPrint(pPlayer, HUD_PRINTCONSOLE, "[AFK] version 2024-01-21\n");
+    g_PlayerFuncs.ClientPrint(pPlayer, HUD_PRINTCONSOLE, "[AFK] version 2024-01-22\n");
     g_PlayerFuncs.ClientPrint(pPlayer, HUD_PRINTCONSOLE, "For the latest version go to https://github.com/gvazdas/svencoop\n");
 }
 
@@ -333,6 +339,10 @@ final class AFK_Data
           UpdateLastAngle();
         
         }
+        else
+        {
+           ClearInitTimer();
+        }
    
    
    }
@@ -427,8 +437,6 @@ void MapInit()
         break;
      g_WarnIntervals_Sub.insertLast(temp_interval);
   }
-  
-  //g_PlayerFuncs.CreateBot("Josh");
   
 }
 
@@ -576,6 +584,7 @@ HookReturnCode MapChange()
     if (afk_plr_data[i] !is null)
       afk_plr_data[i].ClearInitTimer();
   }
+  //g_Scheduler.ClearTimerList();
   return HOOK_CONTINUE;
 }
 

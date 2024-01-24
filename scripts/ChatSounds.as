@@ -13,6 +13,68 @@ bool all_volumes_1 = true; //track if all connected players .csvolume is 1
 
 array<string> @g_SoundListKeys;
 
+//red
+const array<Vector> g_caramel_colors_group1 =
+{
+Vector(255,160,122),
+Vector(128,0,0),
+Vector(255,60,20),
+Vector(255,0,0)
+};
+
+//green
+const array<Vector> g_caramel_colors_group2 =
+{
+Vector(110,180,10),
+Vector(240,240,80),
+Vector(0,255,0)
+};
+
+//light blue
+const array<Vector> g_caramel_colors_group3 =
+{
+Vector(100,240,250),
+Vector(0,120,120),
+Vector(0,255,255)
+};
+
+//orange
+const array<Vector> g_caramel_colors_group4 =
+{
+Vector(255,255,0),
+Vector(255,215,0),
+Vector(255,165,0),
+Vector(255,140,0)
+};
+
+//dark blue
+const array<Vector> g_caramel_colors_group5 =
+{
+Vector(0,0,255),
+Vector(120,210,255),
+Vector(10,50,190),
+Vector(20,120,255)
+};
+
+//purple
+const array<Vector> g_caramel_colors_group6 =
+{
+Vector(255,139,255),
+Vector(255,0,255),
+Vector(193,50,175),
+Vector(128,0,128)
+};
+
+const dictionary g_caramel_all_groups =
+{
+{'0',g_caramel_colors_group1},
+{'1',g_caramel_colors_group2},
+{'2',g_caramel_colors_group3},
+{'3',g_caramel_colors_group4},
+{'4',g_caramel_colors_group5},
+{'5',g_caramel_colors_group6}
+};
+
 CClientCommand g_cs("cs", "List all chatsounds console commands", @cs);
 CClientCommand g_ListSounds("listsounds", "List all chat sounds", @listsounds);
 CClientCommand g_CSVolume("csvolume", "Set volume (0-1) for all chat sounds", @csvolume);
@@ -26,6 +88,7 @@ void PluginInit()
   g_Hooks.RegisterHook(Hooks::Player::ClientSay, @ClientSay);
   g_Hooks.RegisterHook(Hooks::Player::ClientPutInServer, @ClientPutInServer);
   g_Hooks.RegisterHook(Hooks::Player::ClientDisconnect, @ClientDisconnect);
+  g_Hooks.RegisterHook(Hooks::Game::MapChange, @MapChange);
 
   ReadSounds();
   Getnumplayers();
@@ -38,8 +101,23 @@ void cs(const CCommand@ pArgs)
     g_PlayerFuncs.SayText(pPlayer, "[chatsounds] To control pitch, say trigger pitch. For example, tom 150" + "\n");
     g_PlayerFuncs.SayText(pPlayer, "[chatsounds] To hide chatsounds text, add ' s'. For example, tom s or tom ? s" + "\n");
     g_PlayerFuncs.SayText(pPlayer, "[chatsounds] Other console commands: .listsounds .csvolume" + "\n");
-    g_PlayerFuncs.ClientPrint(pPlayer, HUD_PRINTCONSOLE, "[chatsounds] version 2024-01-21\n");
+    g_PlayerFuncs.ClientPrint(pPlayer, HUD_PRINTCONSOLE, "[chatsounds] version 2024-01-23\n");
     g_PlayerFuncs.ClientPrint(pPlayer, HUD_PRINTCONSOLE, "For the latest version go to https://github.com/gvazdas/svencoop\n");
+
+}
+
+void SetPlayerGlowColor(CBasePlayer@ pPlayer, Vector rgb)
+{
+   pPlayer.pev.rendercolor = rgb;
+   pPlayer.pev.renderfx = kRenderFxGlowShell;
+}
+
+void TogglePlayerGlow(CBasePlayer@ pPlayer, bool toggle)
+{
+   if (toggle)
+      pPlayer.pev.renderfx = kRenderFxGlowShell;
+   else
+      pPlayer.pev.renderfx = kRenderFxNone;
 }
 
 // this does not work if the audio channel is CHAN_AUTO.
@@ -208,10 +286,10 @@ HookReturnCode ClientSay(SayParameters@ pParams)
                     else
                     {
                         
-                        if (pitch < 25)
+                        if (pitch < 50)
                         {
-                            pitch = 25;
-                            g_PlayerFuncs.ClientPrint(pPlayer, HUD_PRINTCENTER, "chatsounds minimum pitch is 25");
+                            pitch = 50;
+                            g_PlayerFuncs.ClientPrint(pPlayer, HUD_PRINTCENTER, "chatsounds minimum pitch is 50");
                         }
                                           
                         else if (pitch > 255)
@@ -245,7 +323,11 @@ HookReturnCode ClientSay(SayParameters@ pParams)
                 //i_latest+=1;
                 
                 if (all_volumes_1)
+                {
+                   //g_SoundSystem.PlaySound(pPlayer.edict(), CHAN_AUTO, snd_file, 0.00f, 0.3f,0, pitch, 0, true, pPlayer.pev.origin);
+                   // this is utterly idiotic but it's the only way I could prevent audio being cut off by the crowbar :)
                    g_SoundSystem.PlaySound(pPlayer.edict(), CHAN_AUTO, snd_file, 1.0f, 0.3f,0, pitch, 0, true, pPlayer.pev.origin);
+                }
                 else
                 {
                 	for (int i = 1; i <= numplayers; i++)
@@ -266,11 +348,71 @@ HookReturnCode ClientSay(SayParameters@ pParams)
                 		   localVol = float(g_Volumes[plr_receiving_steamId]);
                 		
                 		if (localVol > 0)
+                	    {
+                		   //g_SoundSystem.PlaySound(pPlayer.edict(), CHAN_AUTO, snd_file, 0.00f, 0.3f, 0, pitch, plr_receiving.entindex(),true,pPlayer.pev.origin);
                            g_SoundSystem.PlaySound(pPlayer.edict(), CHAN_AUTO, snd_file, localVol, 0.3f, 0, pitch, plr_receiving.entindex(),true,pPlayer.pev.origin);
+                        }
                 	}
             	}
             	
-            	pPlayer.ShowOverheadSprite(g_SpriteName, 56.0f, 2.25f);
+            	if (soundArg == 'caramel')
+            	{
+            	
+            	   float t_caramel_delaystart = 1.3f*(100/float(pitch));
+            	   float t_caramel =  1/float(2.75)*(100/float(pitch));
+            	   float t_caramel_length = 15.0f*(100/float(pitch));
+            	   float caramel_distance = 500.0f;
+            	   uint i_colorgroup_start = Math.RandomLong(0,g_caramel_all_groups.getSize()-1);
+            	   array<Vector> colorgroup;
+            	   Vector color;
+            	   uint i_colorgroup;
+            	   uint i_color;
+            	   Vector pPlayer_origin = pPlayer.GetOrigin();
+            	   
+            	   for (int i = 1; i <= numplayers; i++)
+                   {
+                      CBasePlayer@ pPlayer_caramel = g_PlayerFuncs.FindPlayerByIndex(i);
+                      if (pPlayer_caramel is null or !pPlayer_caramel.IsConnected() || pPlayer_caramel.GetObserver().IsObserver())
+                         continue;
+                      
+                      Vector pPlayer_caramel_origin = pPlayer_caramel.GetOrigin();
+                      float current_distance = pPlayer_origin.opSub(pPlayer_caramel_origin).Length();
+                      if (current_distance <= caramel_distance)
+                      {
+                      
+                         float t_track = t_caramel_delaystart;
+                         i_colorgroup = i_colorgroup_start;
+                         colorgroup = array<Vector>(g_caramel_all_groups[i_colorgroup]);
+                         i_color = Math.RandomLong(0,colorgroup.length()-1);
+                         color = colorgroup[i_color];
+                         
+                      	 g_Scheduler.SetTimeout("SetPlayerGlowColor", t_track, @pPlayer_caramel, color); 
+                      	 t_track+=t_caramel;
+                      	 i_colorgroup+=1;
+                      	   
+                      	 while (t_track<=t_caramel_length)
+                      	 {
+                      	     if (i_colorgroup>=g_caramel_all_groups.getSize())
+                      	        i_colorgroup = 0;
+
+                             colorgroup = array<Vector>(g_caramel_all_groups[i_colorgroup]);
+                             i_color = Math.RandomLong(0,colorgroup.length()-1);
+                             color = colorgroup[i_color];
+                  	         g_Scheduler.SetTimeout("SetPlayerGlowColor", t_track, @pPlayer_caramel, color);
+                      	   
+                      	     t_track+=t_caramel;
+                      	     i_colorgroup+=1;
+                      	 }
+                  	     g_Scheduler.SetTimeout("TogglePlayerGlow", t_track, @pPlayer_caramel, false);
+                      
+                      
+                      }
+                         
+                   }
+            	
+            	}
+            	else
+            	   pPlayer.ShowOverheadSprite(g_SpriteName, 56.0f, 2.25f);
             
             }
 
@@ -300,6 +442,12 @@ HookReturnCode ClientPutInServer(CBasePlayer@ pPlayer)
 {
   Getnumplayers();
   CheckAllVolumes();
+  return HOOK_CONTINUE;
+}
+
+HookReturnCode MapChange()
+{
+  g_Scheduler.ClearTimerList();
   return HOOK_CONTINUE;
 }
 
