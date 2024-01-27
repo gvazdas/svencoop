@@ -75,9 +75,9 @@ const dictionary g_caramel_all_groups =
 {'5',g_caramel_colors_group6}
 };
 
-CClientCommand g_cs("cs", "List all chatsounds console commands", @cs);
-CClientCommand g_ListSounds("listsounds", "List all chat sounds", @listsounds);
-CClientCommand g_CSVolume("csvolume", "Set volume (0-1) for all chat sounds", @csvolume);
+CClientCommand g_cs("cs", "List all chatsounds console commands", @cs_command);
+CClientCommand g_ListSounds("listsounds", "List all chat sounds", @listsounds_command);
+CClientCommand g_CSVolume("csvolume", "Set volume (0-1) for all chat sounds", @csvolume_command);
 //CClientCommand g_CSClear("csclear", "Stop all chatsounds", @csclear);
 
 void PluginInit()
@@ -95,21 +95,25 @@ void PluginInit()
   CheckAllVolumes();
 }
 
-void cs(const CCommand@ pArgs)
+void cs_command(const CCommand@ pArgs )
 {
-    CBasePlayer@ pPlayer = g_ConCommandSystem.GetCurrentPlayer();
+	CBasePlayer@ pPlayer = g_ConCommandSystem.GetCurrentPlayer();
+	print_cs(@pArgs, @pPlayer);
+}
+
+void print_cs(const CCommand@ pArgs, CBasePlayer@ pPlayer)
+{
     g_PlayerFuncs.SayText(pPlayer, "[chatsounds] To control pitch, say trigger pitch. For example, tom 150" + "\n");
     g_PlayerFuncs.SayText(pPlayer, "[chatsounds] To hide chatsounds text, add ' s'. For example, tom s or tom ? s" + "\n");
-    g_PlayerFuncs.SayText(pPlayer, "[chatsounds] Other console commands: .listsounds .csvolume" + "\n");
-    g_PlayerFuncs.ClientPrint(pPlayer, HUD_PRINTCONSOLE, "[chatsounds] version 2024-01-23\n");
+    g_PlayerFuncs.SayText(pPlayer, "[chatsounds] Other commands: .listsounds .csvolume" + "\n");
+    g_PlayerFuncs.ClientPrint(pPlayer, HUD_PRINTCONSOLE, "[chatsounds] version 2024-01-27\n");
     g_PlayerFuncs.ClientPrint(pPlayer, HUD_PRINTCONSOLE, "For the latest version go to https://github.com/gvazdas/svencoop\n");
-
 }
 
 void SetPlayerGlowColor(CBasePlayer@ pPlayer, Vector rgb)
 {
-   pPlayer.pev.rendercolor = rgb;
-   pPlayer.pev.renderfx = kRenderFxGlowShell;
+  pPlayer.pev.rendercolor = rgb;
+  pPlayer.pev.renderfx = kRenderFxGlowShell;
 }
 
 void TogglePlayerGlow(CBasePlayer@ pPlayer, bool toggle)
@@ -138,9 +142,14 @@ void TogglePlayerGlow(CBasePlayer@ pPlayer, bool toggle)
 //    }
 //}
 
-void csvolume(const CCommand@ pArgs)
+void csvolume_command(const CCommand@ pArgs)
 {
-    CBasePlayer@ pPlayer = g_ConCommandSystem.GetCurrentPlayer();
+	CBasePlayer@ pPlayer = g_ConCommandSystem.GetCurrentPlayer();
+	print_cs(@pArgs, @pPlayer);
+}
+
+void csvolume(const CCommand@ pArgs, CBasePlayer@ pPlayer)
+{
     const string steamId = g_EngineFuncs.GetPlayerAuthId(pPlayer.edict());
     float volume = 1.0;
 
@@ -208,9 +217,14 @@ void ReadSounds()
   }
 }
 
-void listsounds(const CCommand@ pArgs)
+void listsounds_command(const CCommand@ pArgs)
 {
-  CBasePlayer@ pPlayer = g_ConCommandSystem.GetCurrentPlayer();
+	CBasePlayer@ pPlayer = g_ConCommandSystem.GetCurrentPlayer();
+	listsounds(@pArgs, @pPlayer);
+}
+
+void listsounds(const CCommand@ pArgs, CBasePlayer@ pPlayer)
+{
 
   g_PlayerFuncs.ClientPrint(pPlayer, HUD_PRINTCONSOLE, "AVAILABLE SOUND TRIGGERS\n");
   g_PlayerFuncs.ClientPrint(pPlayer, HUD_PRINTCONSOLE, "------------------------\n");
@@ -245,11 +259,11 @@ HookReturnCode ClientSay(SayParameters@ pParams)
   if (numArgs > 0) {
     
     const string soundArg = pArguments.Arg(0).ToLowercase();
+    CBasePlayer@ pPlayer = pParams.GetPlayer();
 
     if (g_SoundList.exists(soundArg))
     {
       
-      CBasePlayer@ pPlayer = pParams.GetPlayer();
       const string steamId = g_EngineFuncs.GetPlayerAuthId(pPlayer.edict());
  
       if (!g_ChatTimes.exists(steamId))
@@ -326,7 +340,7 @@ HookReturnCode ClientSay(SayParameters@ pParams)
                 {
                    //g_SoundSystem.PlaySound(pPlayer.edict(), CHAN_AUTO, snd_file, 0.00f, 0.3f,0, pitch, 0, true, pPlayer.pev.origin);
                    // this is utterly idiotic but it's the only way I could prevent audio being cut off by the crowbar :)
-                   g_SoundSystem.PlaySound(pPlayer.edict(), CHAN_AUTO, snd_file, 1.0f, 0.3f,0, pitch, 0, true, pPlayer.pev.origin);
+                   g_SoundSystem.PlaySound(pPlayer.edict(), CHAN_AUTO, snd_file, 1.0f, 0.3f, 0, pitch, 0, true, pPlayer.pev.origin);
                 }
                 else
                 {
@@ -426,6 +440,30 @@ HookReturnCode ClientSay(SayParameters@ pParams)
          g_PlayerFuncs.ShowMessage(pPlayer, "and they like jazz");
          //g_AdminControl.SlapPlayer(pPlayer,0.0,0);
       }
+    }
+    else
+    {
+       if (soundArg==".cs" )
+       {
+          print_cs(@pArguments, @pPlayer);
+          pParams.ShouldHide = true;
+          return HOOK_HANDLED;
+       }
+       
+       else if (soundArg==".csvolume" )
+       {
+          csvolume(@pArguments, @pPlayer);
+          pParams.ShouldHide = true;
+          return HOOK_HANDLED;
+       }
+       
+       else if (soundArg==".listsounds" )
+       {
+          listsounds(@pArguments, @pPlayer);
+          g_PlayerFuncs.SayText(pPlayer, "[chatsounds] See console.\n");
+          pParams.ShouldHide = true;
+          return HOOK_HANDLED;
+       }
     }
   }
   return HOOK_CONTINUE;

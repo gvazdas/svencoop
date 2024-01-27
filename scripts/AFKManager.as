@@ -17,7 +17,7 @@ Documentation: https://github.com/MrOats/AngelScript_SC_Plugins/wiki/AFKManager.
 
 const string g_warningsound = "vox/woop.wav";
 array<int> g_WarnIntervals_Sub;
-CClientCommand g_afk("afk", "Print version", @afk);
+CClientCommand g_afk("afk", "Print version", @afk_command);
 CClientCommand g_respawnall("respawnall", "Lets admin respawn all players", @respawnall, ConCommandFlag::AdminOnly);
 
 void PluginInit()
@@ -54,10 +54,15 @@ void respawnall(const CCommand@ pArgs)
    g_PlayerFuncs.RespawnAllPlayers(false,true);
 }
 
-void afk(const CCommand@ pArgs)
+void afk_command(const CCommand@ pArgs)
 {
-    CBasePlayer@ pPlayer = g_ConCommandSystem.GetCurrentPlayer();
-    g_PlayerFuncs.ClientPrint(pPlayer, HUD_PRINTCONSOLE, "[AFK] version 2024-01-22\n");
+	CBasePlayer@ pPlayer = g_ConCommandSystem.GetCurrentPlayer();
+	afk(@pArgs, @pPlayer);
+}
+
+void afk(const CCommand@ pArgs, CBasePlayer@ pPlayer)
+{
+    g_PlayerFuncs.ClientPrint(pPlayer, HUD_PRINTCONSOLE, "[AFK] version 2024-01-27\n");
     g_PlayerFuncs.ClientPrint(pPlayer, HUD_PRINTCONSOLE, "For the latest version go to https://github.com/gvazdas/svencoop\n");
 }
 
@@ -453,6 +458,25 @@ HookReturnCode ClientSay(SayParameters@ pParams)
     CBasePlayer@ pPlayer = pParams.GetPlayer();
     const string steamId = g_EngineFuncs.GetPlayerAuthId(pPlayer.edict());
     g_ActivityList[steamId]=true;
+    
+    const CCommand@ pArguments = pParams.GetArguments();
+    const int numArgs = pArguments.ArgC();
+    
+    if (numArgs > 0)
+    {
+        
+        const string firstArg = pArguments.Arg(0).ToLowercase();
+    
+        if (firstArg==".afk")
+        {
+           afk(@pArguments, @pPlayer);
+           g_PlayerFuncs.SayText(pPlayer, "[AFK] See console.\n");
+           pParams.ShouldHide = true;
+           return HOOK_HANDLED;
+        }
+    
+    }
+    
     return HOOK_CONTINUE;
 }
 
