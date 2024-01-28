@@ -64,6 +64,10 @@ void afk(const CCommand@ pArgs, CBasePlayer@ pPlayer)
 {
     g_PlayerFuncs.ClientPrint(pPlayer, HUD_PRINTCONSOLE, "[AFK] version 2024-01-27\n");
     g_PlayerFuncs.ClientPrint(pPlayer, HUD_PRINTCONSOLE, "For the latest version go to https://github.com/gvazdas/svencoop\n");
+    g_PlayerFuncs.ClientPrint(pPlayer, HUD_PRINTCONSOLE, "For the latest version go to https://github.com/gvazdas/svencoop\n");
+    
+    //CBasePlayer@ pBot = g_PlayerFuncs.CreateBot("Dipshit");
+    
 }
 
 final class AFK_Data
@@ -236,12 +240,8 @@ final class AFK_Data
             
             if (playerObserving)
             {
-              if (!g_SurvivalMode.IsActive())
-                 g_PlayerFuncs.RespawnPlayer(pPlayer, true, true);
-              else
-                 pPlayer.pev.nextthink = g_Engine.time;
-              
               pPlayer.m_flRespawnDelayTime = 0;
+              pPlayer.pev.nextthink = g_Engine.time;
               g_PlayerFuncs.ClientPrint(pPlayer, HUD_PRINTCENTER, "");
             }
           
