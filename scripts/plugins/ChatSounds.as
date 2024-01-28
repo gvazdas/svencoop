@@ -11,7 +11,7 @@ dictionary g_Volumes;
 bool desperate; //deus ex meme
 bool all_volumes_1 = true; //track if all connected players .csvolume is 1
 
-const float race_updatetime = 0.05f;
+const float race_updatetime = 0.05f; //higher number will result in less hitching.
 bool race_happening = false;
 array<Vector> arr_race_origins;
 array<float> arr_race_distances;
@@ -447,13 +447,11 @@ HookReturnCode ClientSay(SayParameters@ pParams)
             bool setOrigin=true;
             if (soundArg=="speed")
             {
+               pitch = 100;
                attenuation = 0.0f;
                setOrigin = false;
                if (race_happening)
-               {
-                  pParams.ShouldHide = true;
                   return HOOK_HANDLED;
-               }
                race_happening = true;
             }
             

@@ -70,3 +70,5 @@ moveup fgrunt/moveup.wav
 scifall scientist/c1a0_sci_catscream.wav
 pickup items/gunpickup2.wav
 gunpickup items/gunpickup2.wav
+
+speed chat/up7/speed.wav
