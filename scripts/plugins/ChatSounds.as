@@ -141,8 +141,8 @@ void cs_command(const CCommand@ pArgs )
 
 void print_cs(const CCommand@ pArgs, CBasePlayer@ pPlayer)
 {
-    g_PlayerFuncs.SayText(pPlayer, "[chatsounds] To control pitch, say trigger pitch. For example, tom 150" + "\n");
-    g_PlayerFuncs.SayText(pPlayer, "[chatsounds] To hide chatsounds text, add ' s'. For example, tom s or tom ? s" + "\n");
+    g_PlayerFuncs.SayText(pPlayer, "[chatsounds] To control pitch, say trigger pitch. For example, hello 150 (normal pitch is 100)" + "\n");
+    g_PlayerFuncs.SayText(pPlayer, "[chatsounds] To hide chatsounds text, add ' s'. For example, hello s or hello ? s" + "\n");
     g_PlayerFuncs.SayText(pPlayer, "[chatsounds] Other commands: .listsounds .csvolume" + "\n");
     g_PlayerFuncs.ClientPrint(pPlayer, HUD_PRINTCONSOLE, "[chatsounds] version 2024-01-27\n");
     g_PlayerFuncs.ClientPrint(pPlayer, HUD_PRINTCONSOLE, "For the latest version go to https://github.com/gvazdas/svencoop\n");
@@ -183,6 +183,7 @@ void TogglePlayerGlow(CBasePlayer@ pPlayer, bool toggle)
 void csvolume_command(const CCommand@ pArgs)
 {
 	CBasePlayer@ pPlayer = g_ConCommandSystem.GetCurrentPlayer();
+	g_EngineFuncs.ServerPrint("[chatsounds] " + string(pPlayer.pev.netname) + " csvolume console\n");
 	csvolume(@pArgs, @pPlayer);
 }
 
@@ -194,8 +195,9 @@ void csvolume(const CCommand@ pArgs, CBasePlayer@ pPlayer)
     if (pArgs.ArgC() < 2)
     {
         if (g_Volumes.exists(steamId))
-           volume = float(g_Volumes[steamId]);
-        g_PlayerFuncs.SayText(pPlayer, "csvolume is " + volume + "\n");
+           g_PlayerFuncs.SayText(pPlayer, "csvolume is " + string(float(g_Volumes[steamId])) + "\n");
+        else
+           g_PlayerFuncs.SayText(pPlayer, "csvolume is 1\n");
         return;
     }
     
@@ -219,7 +221,7 @@ void csvolume(const CCommand@ pArgs, CBasePlayer@ pPlayer)
         msg.End();
     }
     
-    g_EngineFuncs.ServerPrint("[chatsounds] " + string(pPlayer.pev.netname) + " changed csvolume to " + string(volume) + "\n");
+    g_EngineFuncs.ServerPrint("[chatsounds] " + string(pPlayer.pev.netname) + " " + steamId + " changed csvolume to " + string(volume) + "\n");
     
     GetActivePlayerIndices();
     CheckAllVolumes();
@@ -283,7 +285,7 @@ void ReadSounds()
     
     @g_SoundListKeys = g_SoundList.getKeys();
     
-    // triggers for multiple sounds go here
+    // multi-sound triggers go here
     g_SoundListKeys.insertLast("desperate");
     g_SoundListKeys.insertLast("duke");
     g_SoundListKeys.insertLast("dracula");
@@ -370,6 +372,11 @@ void race_update()
 void race_end()
 {
    
+   if (Math.RandomLong(0,100)<10)
+   {
+       g_PlayerFuncs.ShowMessageAll("Directed by Speed Weed");  
+   }
+   
    for (uint i = 0; i < arr_active_players.length(); i++)
    {
       
@@ -377,9 +384,20 @@ void race_end()
       if (arr_race_distances[pPlayer_index-1]>0)
       {
          CBasePlayer@ pPlayer = g_PlayerFuncs.FindPlayerByIndex(pPlayer_index);
-         //g_PlayerFuncs.SayText(pPlayer, "[chatsounds] Your score: " + string(int(arr_race_distances[pPlayer_index-1])) + "\n");
-         g_PlayerFuncs.ClientPrint(pPlayer, HUD_PRINTCENTER, "Your score: " + string(int(arr_race_distances[pPlayer_index-1])));
-         g_PlayerFuncs.ClientPrint(pPlayer, HUD_PRINTCONSOLE, "[chatsounds] Your score: " + string(arr_race_distances[pPlayer_index-1]) + "\n");
+         
+         float localVol = 1.0;
+         string pPlayer_steamID = g_EngineFuncs.GetPlayerAuthId(pPlayer.edict());
+ 		 if (g_Volumes.exists(pPlayer_steamID))
+ 		   localVol = float(g_Volumes[pPlayer_steamID]);
+ 		
+ 		 if (localVol > 0)
+ 	     {
+ 	         //g_PlayerFuncs.SayText(pPlayer, "[chatsounds] Your score: " + string(int(arr_race_distances[pPlayer_index-1])) + "\n");
+             g_PlayerFuncs.ClientPrint(pPlayer, HUD_PRINTCENTER, "Your score: " + string(int(arr_race_distances[pPlayer_index-1])));
+             g_PlayerFuncs.ClientPrint(pPlayer, HUD_PRINTCONSOLE, "[chatsounds] Your score: " + string(arr_race_distances[pPlayer_index-1]) + "\n");
+         }
+         
+         
       }
    
    }
@@ -401,6 +419,21 @@ void race_end()
          continue;
       CBasePlayer@ pPlayer = g_PlayerFuncs.FindPlayerByIndex(index_temp+1);
       g_PlayerFuncs.ClientPrintAll(HUD_PRINTTALK,"[chatsounds] #"+string(i_rank+1)+" "+string(pPlayer.pev.netname)+" "+string(int(arr_race_distances[index_temp]))+"\n");
+      
+      if (g_SoundList.exists("nice"))
+      {
+         
+         float localVol = 1.0;
+         string pPlayer_steamID = g_EngineFuncs.GetPlayerAuthId(pPlayer.edict());
+ 		 if (g_Volumes.exists(pPlayer_steamID))
+ 		   localVol = float(g_Volumes[pPlayer_steamID]);
+ 		
+ 		 if (localVol > 0)
+ 	     {
+ 	        g_SoundSystem.PlaySound(pPlayer.edict(), CHAN_MUSIC, string(g_SoundList["nice"]), localVol, 0.0f, 0, 100, pPlayer.entindex());
+         }
+          
+      }
    
    }
    
@@ -408,9 +441,9 @@ void race_end()
    
 }
 
-void print_all_chat(CBasePlayer@ pPlayer, string msg)
+void print_all_chat(string msg)
 {
-g_PlayerFuncs.SayTextAll(pPlayer, msg + "\n");
+g_PlayerFuncs.ClientPrintAll(HUD_PRINTTALK,msg+"\n");
 }
 
 void print_all_hud(string msg)
@@ -428,11 +461,11 @@ HookReturnCode ClientSay(SayParameters@ pParams)
     
     const string soundArg = pArguments.Arg(0).ToLowercase();
     CBasePlayer@ pPlayer = pParams.GetPlayer();
-    Vector pPlayer_origin = pPlayer.GetOrigin();
 
     if (g_SoundList.exists(soundArg))
     {
-      
+    
+      const Vector pPlayer_origin = pPlayer.GetOrigin();
       const string steamId = g_EngineFuncs.GetPlayerAuthId(pPlayer.edict());
  
       if (!g_ChatTimes.exists(steamId))
@@ -632,16 +665,16 @@ HookReturnCode ClientSay(SayParameters@ pParams)
             	   
             	   g_Scheduler.SetTimeout("race_start", race_startdelay);
             	   
-            	   g_Scheduler.SetTimeout("print_all_chat", race_startdelay, @pPlayer, "[chatsounds] GO!");
+            	   g_Scheduler.SetTimeout("print_all_chat", race_startdelay, "[chatsounds] GO!");
             	   g_Scheduler.SetTimeout("print_all_hud", race_startdelay, "GO!");
             	   
-            	   g_Scheduler.SetTimeout("print_all_chat", race_startdelay-3, @pPlayer, "[chatsounds] Race starts in 3 seconds!");
+            	   g_Scheduler.SetTimeout("print_all_chat", race_startdelay-3, "[chatsounds] Race starts in 3 seconds!");
             	   g_Scheduler.SetTimeout("print_all_hud", race_startdelay-3, "Race starts in 3 seconds!");
             	   
-            	   g_Scheduler.SetTimeout("print_all_chat", race_startdelay-2, @pPlayer, "[chatsounds] Race starts in 2 seconds!");
+            	   g_Scheduler.SetTimeout("print_all_chat", race_startdelay-2, "[chatsounds] Race starts in 2 seconds!");
             	   g_Scheduler.SetTimeout("print_all_hud", race_startdelay-2, "Race starts in 2 seconds!");
             	   
-            	   g_Scheduler.SetTimeout("print_all_chat", race_startdelay-1, @pPlayer, "[chatsounds] Race starts in 1 second!");
+            	   g_Scheduler.SetTimeout("print_all_chat", race_startdelay-1, "[chatsounds] Race starts in 1 second!");
             	   g_Scheduler.SetTimeout("print_all_hud", race_startdelay-1, "Race starts in 1 second!");
             	   
             	   float t_update = race_startdelay+race_updatetime;
@@ -706,8 +739,9 @@ HookReturnCode ClientSay(SayParameters@ pParams)
        
        else if (soundArg==".csvolume" )
        {
+          g_EngineFuncs.ServerPrint("[chatsounds] " + string(pPlayer.pev.netname) + " csvolume chat\n");
           csvolume(@pArguments, @pPlayer);
-          pParams.ShouldHide = true;
+          //pParams.ShouldHide = true;
           return HOOK_HANDLED;
        }
        
@@ -755,9 +789,7 @@ HookReturnCode ClientPutInServer(CBasePlayer@ pPlayer)
 HookReturnCode PlayerSpawn(CBasePlayer@ pPlayer)
 {
   if (race_happening)
-  {
      arr_race_origins[pPlayer.entindex()-1] = pPlayer.GetOrigin();
-  }
   return HOOK_CONTINUE;
 }
 
@@ -775,7 +807,7 @@ void GetActivePlayerIndices()
    for (int i = 1; i <= g_Engine.maxClients; i++)
    {
       CBasePlayer@ pPlayer = g_PlayerFuncs.FindPlayerByIndex(i);
-      if (pPlayer !is null && pPlayer.IsConnected())
+      if (pPlayer !is null && pPlayer.IsConnected() && pPlayer.IsPlayer())
         arr_active_players.insertLast(i);
          
    }
@@ -791,8 +823,8 @@ void CheckAllVolumes()
        array<string> g_Volumes_keys = g_Volumes.getKeys();
        for (uint i = 0; i < g_Volumes_keys.length(); ++i)
        {
-          string steamID = g_Volumes_keys[i];
-          g_EngineFuncs.ServerPrint("[chatsounds] " + steamID + " " + string(float(g_Volumes[steamID])) + "\n");   
+          string steamid_temp = g_Volumes_keys[i];
+          g_EngineFuncs.ServerPrint("[chatsounds] " + steamid_temp + " " + string(float(g_Volumes[steamid_temp])) + "\n");   
        }
    }
    
@@ -805,14 +837,16 @@ void CheckAllVolumes()
          if (pPlayer is null or !pPlayer.IsConnected())
             continue;
          string steamId = g_EngineFuncs.GetPlayerAuthId(pPlayer.edict());
-         //g_PlayerFuncs.SayTextAll(pPlayer, string(steamId) + "\n");
+         //g_PlayerFuncs.SayTextAll(pPlayer, string(i) + " " + string(steamId) + "\n");
          if (float(g_Volumes[steamId])<1)
          {
             all_volumes_1 = false;
+            g_EngineFuncs.ServerPrint("[chatsounds] all_volumes_1 is false\n");   
             return;
          }
       }
    
    }
+   g_EngineFuncs.ServerPrint("[chatsounds] all_volumes_1 is true\n");  
 
 }
