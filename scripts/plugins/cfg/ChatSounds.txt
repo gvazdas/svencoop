@@ -72,4 +72,3 @@ pickup items/gunpickup2.wav
 gunpickup items/gunpickup2.wav
 
 caramel chat/up7/caramel.wav
-speed chat/up7/speed.wav
