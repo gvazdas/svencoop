@@ -8,8 +8,8 @@ const string g_SpriteName = 'sprites/bubble.spr';
 dictionary g_SoundList;
 dictionary g_ChatTimes;
 
-dictionary g_Volumes;
-//array<float> arr_volumes(g_Engine.maxClients, 1.0f);
+//dictionary g_Volumes;
+array<float> arr_volumes(g_Engine.maxClients, 1.0f);
 
 bool desperate; //deus ex meme
 bool all_volumes_1 = true; //track if all connected players .csvolume is 1
@@ -138,13 +138,13 @@ void PluginInit()
   g_Hooks.RegisterHook(Hooks::Player::ClientPutInServer, @ClientPutInServer);
   g_Hooks.RegisterHook(Hooks::Player::ClientDisconnect, @ClientDisconnect);
   g_Hooks.RegisterHook(Hooks::Game::MapChange, @MapChange);
-  g_Hooks.RegisterHook(Hooks::Player::ClientConnected, @ClientConnected);
+  //g_Hooks.RegisterHook(Hooks::Player::ClientConnected, @ClientConnected);
   g_Hooks.RegisterHook(Hooks::Player::PlayerSpawn, @PlayerSpawn);
   g_Hooks.RegisterHook(Hooks::Player::PlayerKilled, @PlayerKilled);
 
   ReadSounds();
-  GetActivePlayerIndices();
-  CheckAllVolumes();
+  //GetActivePlayerIndices();
+  //CheckAllVolumes();
 }
 
 void cs_command(const CCommand@ pArgs )
@@ -209,42 +209,52 @@ void csvolume(const CCommand@ pArgs, CBasePlayer@ pPlayer)
     {
     
         const string steamId = g_EngineFuncs.GetPlayerAuthId(pPlayer.edict());
-        float volume = 1.0;
+        //float volume = 1.0;
+        
+        uint pPlayer_index = pPlayer.entindex()-1;
+        float volume = arr_volumes[pPlayer_index];
     
         if (pArgs.ArgC() < 2)
         {
-            if (g_Volumes.exists(steamId))
-               g_PlayerFuncs.SayText(pPlayer, "csvolume is " + string(float(g_Volumes[steamId])) + "\n");
-            else
-               g_PlayerFuncs.SayText(pPlayer, "csvolume is 1\n");
+            g_PlayerFuncs.SayText(pPlayer, "csvolume is " + string(volume) + "\n");
+            //if (g_Volumes.exists(steamId))
+            //   g_PlayerFuncs.SayText(pPlayer, "csvolume is " + string(float(g_Volumes[steamId])) + "\n");
+            //else
+            //   g_PlayerFuncs.SayText(pPlayer, "csvolume is 1\n");
             return;
         }
         
-        float volume_old = 1;
-        if (g_Volumes.exists(steamId))
-           volume_old = float(g_Volumes[steamId]);
+        //float volume_old = 1;
+        //if (g_Volumes.exists(steamId))
+        //   volume_old = float(g_Volumes[steamId]);
             
-        volume = atof(pArgs.Arg(1));
-        if (volume<0)
-           volume=0;
-        else if (volume>1)
-           volume=1;
+        float volume_new = atof(pArgs.Arg(1));
+        if (volume_new<0)
+           volume_new=0;
+        else if (volume_new>1)
+           volume_new=1;
     
-        g_Volumes[steamId] = volume;
-        //arr_volumes[pPlayer.entindex()-1] = volume;
-        g_PlayerFuncs.SayText(pPlayer, "csvolume is " + volume + "\n");
+        //g_Volumes[steamId] = volume;
+        arr_volumes[pPlayer_index] = volume_new;
+        g_PlayerFuncs.SayText(pPlayer, "csvolume is " + volume_new + "\n");
         
-        if (volume<volume_old)
+        if (volume_new<volume)
         {
             NetworkMessage msg(MSG_ONE, NetworkMessages::SVC_STUFFTEXT, pPlayer.edict() );
             msg.WriteString("cl_stopsound");
             msg.End();
         }
         
-        g_EngineFuncs.ServerPrint("[chatsounds] " + string(pPlayer.pev.netname) + " " + steamId + " changed csvolume to " + string(volume) + "\n");
+        g_EngineFuncs.ServerPrint("[chatsounds] " + string(pPlayer.pev.netname) + " " + steamId + " changed csvolume to " + string(volume_new) + "\n");
         
         GetActivePlayerIndices();
-        CheckAllVolumes();
+        if (volume_new<1)
+        {
+           all_volumes_1=false;
+           g_EngineFuncs.ServerPrint("[chatsounds] all_volumes_1 is false\n");   
+        }
+        else
+           CheckAllVolumes();
     
     }
 }
@@ -285,8 +295,9 @@ void MapInit()
   g_Game.PrecacheGeneric(g_SpriteName);
   g_Game.PrecacheModel(g_SpriteName);
   
-  GetActivePlayerIndices();
-  CheckAllVolumes();
+  //GetActivePlayerIndices();
+  //CheckAllVolumes();
+  all_volumes_1=true;
   race_happening = false;
   
 }
@@ -417,10 +428,12 @@ void race_end()
       {
          CBasePlayer@ pPlayer = g_PlayerFuncs.FindPlayerByIndex(pPlayer_index);
          
-         float localVol = 1.0;
-         string pPlayer_steamID = g_EngineFuncs.GetPlayerAuthId(pPlayer.edict());
- 		 if (g_Volumes.exists(pPlayer_steamID))
- 		   localVol = float(g_Volumes[pPlayer_steamID]);
+         //float localVol = 1.0;
+         //string pPlayer_steamID = g_EngineFuncs.GetPlayerAuthId(pPlayer.edict());
+ 		 //if (g_Volumes.exists(pPlayer_steamID))
+ 		 //  localVol = float(g_Volumes[pPlayer_steamID]);
+ 		   
+ 		 float localVol = arr_volumes[pPlayer_index-1];
  		
  		 if (localVol > 0)
  	     {
@@ -461,10 +474,12 @@ void race_end()
               if (g_SoundList.exists("nice"))
               {
                  
-                 float localVol = 1.0;
-                 string pPlayer_steamID = g_EngineFuncs.GetPlayerAuthId(pPlayer.edict());
-         		 if (g_Volumes.exists(pPlayer_steamID))
-         		   localVol = float(g_Volumes[pPlayer_steamID]);
+                 //float localVol = 1.0;
+                 //string pPlayer_steamID = g_EngineFuncs.GetPlayerAuthId(pPlayer.edict());
+         		 //if (g_Volumes.exists(pPlayer_steamID))
+         		 //  localVol = float(g_Volumes[pPlayer_steamID]);
+         		   
+         		 float localVol = arr_volumes[index_temp];
          		
          		 if (localVol > 0)
          	     {
@@ -638,9 +653,11 @@ HookReturnCode ClientSay(SayParameters@ pParams)
                 		
                 		string plr_receiving_steamId = g_EngineFuncs.GetPlayerAuthId(plr_receiving.edict());
                 		
-                		float localVol = 1.0;
-                		if (g_Volumes.exists(plr_receiving_steamId))
-                		   localVol = float(g_Volumes[plr_receiving_steamId]);
+                		//float localVol = 1.0;
+                		//if (g_Volumes.exists(plr_receiving_steamId))
+                		//   localVol = float(g_Volumes[plr_receiving_steamId]);
+            		    
+            		    float localVol = arr_volumes[arr_active_players[i]-1];
                 		
                 		if (localVol > 0)
                 	    {
@@ -810,7 +827,7 @@ HookReturnCode ClientSay(SayParameters@ pParams)
 
 HookReturnCode ClientDisconnect(CBasePlayer@ pPlayer)
 {
-  //arr_volumes[pPlayer.entindex()-1] = 1.0f;
+  arr_volumes[pPlayer.entindex()-1] = 1.0f;
   GetActivePlayerIndices();
   CheckAllVolumes();
   
@@ -819,13 +836,13 @@ HookReturnCode ClientDisconnect(CBasePlayer@ pPlayer)
   return HOOK_CONTINUE;
 }
 
-HookReturnCode ClientConnected(edict_t@ pEntity, const string& in szPlayerName,
-                               const string& in szIPAddress, bool& out bDisallowJoin, string& out szRejectReason)
-{
-  GetActivePlayerIndices();
-  CheckAllVolumes();
-  return HOOK_CONTINUE;
-}
+//HookReturnCode ClientConnected(edict_t@ pEntity, const string& in szPlayerName,
+//                               const string& in szIPAddress, bool& out bDisallowJoin, string& out szRejectReason)
+//{
+  //GetActivePlayerIndices();
+  //CheckAllVolumes();
+  //return HOOK_CONTINUE;
+//}
 
 HookReturnCode ClientPutInServer(CBasePlayer@ pPlayer)
 {
@@ -864,14 +881,15 @@ HookReturnCode MapChange()
 void GetActivePlayerIndices()
 {
 
-   g_EngineFuncs.ServerPrint("[chatsounds] GetActivePlayerIndices()\n");
-
    arr_active_players.resize(0);
-   for (int i = 1; i <= (g_Engine.maxClients+1); i++)
+   for (int i = 1; i <= (g_Engine.maxClients); i++)
    {
+      g_EngineFuncs.ServerPrint("[chatsounds] GetActivePlayerIndices " + string(i) + "/" + string(g_Engine.maxClients) +"\n");
       CBasePlayer@ pPlayer = g_PlayerFuncs.FindPlayerByIndex(i);
       if (pPlayer !is null && pPlayer.IsConnected() && pPlayer.IsPlayer())
         arr_active_players.insertLast(i);
+      if (int(arr_active_players.length())>=g_PlayerFuncs.GetNumPlayers())
+         break;
    }
    g_EngineFuncs.ServerPrint("[chatsounds] in-game players: " + string(arr_active_players.length()) + "\n");   
 
@@ -880,30 +898,42 @@ void GetActivePlayerIndices()
 void CheckAllVolumes()
 {
 
-   g_EngineFuncs.ServerPrint("[chatsounds] CheckAllVolumes()\n");
+   //g_EngineFuncs.ServerPrint("[chatsounds] CheckAllVolumes()\n");
 
-   //debug purposes only
-   if (!g_Volumes.isEmpty())
+   //debug (dictionary method)
+   //if (!g_Volumes.isEmpty())
+   //{
+   //    array<string> g_Volumes_keys = g_Volumes.getKeys();
+   //    for (uint i = 0; i < g_Volumes_keys.length(); ++i)
+   //    {
+   //       string steamid_temp = g_Volumes_keys[i];
+   //       g_EngineFuncs.ServerPrint("[chatsounds] " + steamid_temp + " " + string(float(g_Volumes[steamid_temp])) + "\n");   
+   //    }
+   //}
+   
+   //debug (array method)
+   for (uint i = 0; i < arr_active_players.length(); i++)
    {
-       array<string> g_Volumes_keys = g_Volumes.getKeys();
-       for (uint i = 0; i < g_Volumes_keys.length(); ++i)
-       {
-          string steamid_temp = g_Volumes_keys[i];
-          g_EngineFuncs.ServerPrint("[chatsounds] " + steamid_temp + " " + string(float(g_Volumes[steamid_temp])) + "\n");   
-       }
+      CBasePlayer@ pPlayer2 = g_PlayerFuncs.FindPlayerByIndex(arr_active_players[i]);
+      float localVol2 = arr_volumes[arr_active_players[i]-1];
+      g_EngineFuncs.ServerPrint("[chatsounds] " + string(arr_active_players[i]) + " " + pPlayer2.pev.netname + " " + string(localVol2) + "\n");   
    }
    
    all_volumes_1 = true;
-   if (!g_Volumes.isEmpty() && arr_active_players.length()>0)
+   //if (!g_Volumes.isEmpty() && arr_active_players.length()>0)
+   if (arr_active_players.length()>0)
    {
       for (uint i = 0; i < arr_active_players.length(); i++)
       {
+         //g_EngineFuncs.ServerPrint("[chatsounds] CheckAllVolumes " + string(i) + "\n");   
          CBasePlayer@ pPlayer = g_PlayerFuncs.FindPlayerByIndex(arr_active_players[i]);
          if (pPlayer is null or !pPlayer.IsConnected())
             continue;
          string steamId = g_EngineFuncs.GetPlayerAuthId(pPlayer.edict());
+         float localVol = arr_volumes[arr_active_players[i]-1];
+         //g_EngineFuncs.ServerPrint("[chatsounds] " + pPlayer.pev.netname + " " + string(localVol) + "\n");   
          //g_PlayerFuncs.SayTextAll(pPlayer, string(i) + " " + string(steamId) + "\n");
-         if (float(g_Volumes[steamId])<1)
+         if (localVol<1)
          {
             all_volumes_1 = false;
             g_EngineFuncs.ServerPrint("[chatsounds] all_volumes_1 is false\n");   
