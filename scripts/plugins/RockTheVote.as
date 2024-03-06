@@ -1165,7 +1165,8 @@ void ChooseMap(string chosenMap, bool forcechange)
   if (forcechange || (g_WhenToChange.GetInt() == 0) )
   {
 
-    g_Log.PrintF("[RTV] Changing map to \"%1\"\n", chosenMap);
+    g_PlayerFuncs.ClientPrintAll(HUD_PRINTTALK, "[RTV] Changing map to " + chosenMap + "...\n");
+    g_PlayerFuncs.CenterPrintAll("Changing map to " + chosenMap + "...\n");
     g_EngineFuncs.ServerCommand("changelevel " + chosenMap + "\n");
 
   }
