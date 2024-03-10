@@ -73,6 +73,7 @@ gunpickup items/gunpickup2.wav
 
 nishiki chat/nishiki.wav
 zombie chat/up2/zombie.wav
+standing chat/up2/standing.wav
 caramel chat/up7/caramel.wav
 sciteam chat/up9/scienceteam.wav
 alone chat/up9/alone.wav

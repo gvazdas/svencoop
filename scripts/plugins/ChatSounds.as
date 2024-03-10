@@ -10,6 +10,7 @@ array<float> arr_volumes(g_Engine.maxClients, 1.0f);
 bool desperate; //deus ex meme
 bool dental; //simpsons meme
 bool all_volumes_1 = true; //track if all connected players .csvolume is 1
+//bool payne_music = false;
 
 //nishiki timing game
 bool nishiki = false;
@@ -244,12 +245,11 @@ void print_cs(const CCommand@ pArgs, CBasePlayer@ pPlayer)
     g_PlayerFuncs.SayText(pPlayer, "[chatsounds] To control pitch, say trigger pitch. For example, hello 150 (normal pitch is 100)" + "\n");
     g_PlayerFuncs.SayText(pPlayer, "[chatsounds] To hide chatsounds text, add ' s'. For example, hello s or hello ? s" + "\n");
     g_PlayerFuncs.SayText(pPlayer, "[chatsounds] Other commands: .listsounds .csvolume" + "\n");
-    g_PlayerFuncs.ClientPrint(pPlayer, HUD_PRINTCONSOLE, "[chatsounds] version 2024-03-05\n");
+    g_PlayerFuncs.ClientPrint(pPlayer, HUD_PRINTCONSOLE, "[chatsounds] version 2024-03-10\n");
     g_PlayerFuncs.ClientPrint(pPlayer, HUD_PRINTCONSOLE, "For the latest version go to https://github.com/gvazdas/svencoop\n");
-    CBasePlayer@ pBot = g_PlayerFuncs.CreateBot("Dipshit"); 
+    //CBasePlayer@ pBot = g_PlayerFuncs.CreateBot("Dipshit"); 
     
 }
-
 
 void SetPlayerGlowColor(CBasePlayer@ pPlayer, Vector rgb)
 {
@@ -403,6 +403,7 @@ void MapInit()
   race_happening = false;
   nishiki = false;
   nishiki_timing = false;
+  //payne_music = false;
   if (speed_disableGoto)
   {
       g_EngineFuncs.ServerCommand("as_command .goto_endrace\n");
@@ -668,6 +669,7 @@ HookReturnCode ClientSay(SayParameters@ pParams)
       {
       
             int pitch = 100;
+            float volume = 1.0f;
             bool silent_mode = false;
             bool hide_sound = false;
             
@@ -765,6 +767,10 @@ HookReturnCode ClientSay(SayParameters@ pParams)
                if (!pPlayer.IsAlive())
                   return HOOK_HANDLED;
             }
+            else if (soundArg=="standing")
+            {
+               audio_channel = CHAN_STREAM;
+            }
             else if (soundArg=="nishiki")
             {
                if (nishiki)
@@ -830,10 +836,11 @@ HookReturnCode ClientSay(SayParameters@ pParams)
                 if (soundArg == 'imded' and (array_imded[pPlayer.entindex()-1]) )
                 {
                    hide_sound=true;
+                   pParams.ShouldHide = true;
                 }
                 
                 if (!hide_sound)
-                   play_sound(pPlayer,audio_channel,snd_file,attenuation,pitch,setOrigin);
+                   play_sound(pPlayer,audio_channel,snd_file,volume,attenuation,pitch,setOrigin);
             	
             	// Players near pPlayer should join in the color cycle.
             	if (soundArg == 'caramel')
@@ -890,6 +897,31 @@ HookReturnCode ClientSay(SayParameters@ pParams)
                          
                    }
             	
+            	}
+            	
+            	// Turbo charge melee speed
+            	else if (soundArg == 'standing')
+            	{
+            	   if (pPlayer.HasNamedPlayerItem("weapon_crowbar") !is null and pPlayer.IsAlive())
+            	   {
+            	   
+            	     float standing_updatetime = 0.09f + Math.RandomFloat(-0.01f,0.01f);
+            	     standing_updatetime *= (100/float(pitch));
+            	     float standing_delay = 2.9f*(100/float(pitch));
+            	     float standing_total = 11.5f*(100/float(pitch));
+            	   
+            	     CBasePlayerWeapon@ pPlayer_crowbar = pPlayer.HasNamedPlayerItem("weapon_crowbar").GetWeaponPtr();
+            	     
+            	     float temp_time = standing_delay;
+            	     g_Scheduler.SetTimeout("weapon_swap",temp_time/float(2),@pPlayer,@pPlayer_crowbar); 
+                     while (temp_time<=standing_total)
+                     {
+                        g_Scheduler.SetTimeout("crowbar_fast",temp_time,@pPlayer,@pPlayer_crowbar); 
+                        temp_time += standing_updatetime;
+                     }
+                     g_Scheduler.SetTimeout("crowbar_end",temp_time,@pPlayer,@pPlayer_crowbar); 
+            	     
+            	   }
             	}
             	
             	// Start race
@@ -956,8 +988,8 @@ HookReturnCode ClientSay(SayParameters@ pParams)
             	}
             	
             	// If nearby player model is zombie, respond with hard hitting social commentary
-            	//else if (soundArg == 'zombie' and (g_EngineFuncs.GetInfoKeyBuffer(pPlayer.edict()).GetValue("model") != "zombie") )
-            	else if (soundArg == 'zombie')
+            	else if (soundArg == 'zombie' and (g_EngineFuncs.GetInfoKeyBuffer(pPlayer.edict()).GetValue("model") != "zombie") )
+            	//else if (soundArg == 'zombie')
             	{
             	
             	   float zombie_distance = 2000.0f;
@@ -1006,7 +1038,7 @@ HookReturnCode ClientSay(SayParameters@ pParams)
             	else if (soundArg == "funky" or soundArg == "speen" or soundArg == "speeen")
             	{
             	   
-            	   float funky_distance = 2000.0f;
+            	   float funky_distance = 3000.0f;
             	   
             	   float funky_duration;
             	   if (soundArg == "funky")
@@ -1105,6 +1137,48 @@ HookReturnCode ClientSay(SayParameters@ pParams)
   return HOOK_CONTINUE;
 }
 
+void weapon_swap(CBasePlayer@ pPlayer, CBasePlayerWeapon@ pPlayer_crowbar)
+{
+   if ( (pPlayer !is null) and (pPlayer_crowbar !is null) and pPlayer.IsAlive() )
+   {
+      SetPlayerGlowColor(pPlayer, Vector(100,255,255));
+      if (pPlayer.m_hActiveItem.GetEntity().entindex() != pPlayer_crowbar.entindex())
+      {
+      pPlayer.SwitchWeapon(pPlayer_crowbar);
+      }
+   }
+}
+
+void crowbar_fast(CBasePlayer@ pPlayer, CBasePlayerWeapon@ pPlayer_crowbar)
+{
+   if ( (pPlayer !is null) and (pPlayer_crowbar !is null) and (pPlayer.m_hActiveItem.GetEntity().entindex() == pPlayer_crowbar.entindex())  )
+   {
+   
+      if (pPlayer.IsAlive())
+      {
+      pPlayer_crowbar.PrimaryAttack();
+      SetPlayerGlowColor(pPlayer, Vector(100,255,255));
+      }
+   }
+   else
+      TogglePlayerGlow(pPlayer,false);
+      
+}
+
+void crowbar_end(CBasePlayer@ pPlayer, CBasePlayerWeapon@ pPlayer_crowbar)
+{
+   if ( (pPlayer !is null) )
+   {
+       TogglePlayerGlow(pPlayer,false);
+       if (pPlayer.m_hActiveItem.GetEntity().entindex() == pPlayer_crowbar.entindex() and pPlayer.IsAlive() and pPlayer_crowbar !is null)
+       {
+           pPlayer_crowbar.m_flNextPrimaryAttack = g_EngineFuncs.Time()+0.01f;
+           pPlayer_crowbar.PrimaryAttack();
+       }
+   
+   }
+}
+
 HookReturnCode ClientDisconnect(CBasePlayer@ pPlayer)
 {
   arr_volumes[pPlayer.entindex()-1] = 1.0f;
@@ -1125,28 +1199,38 @@ void monster_rotate(CBaseMonster@ pMonster, float avelocity_y)
 {
    if (pMonster !is null && pMonster.IsAlive())
    {
-       pMonster.pev.avelocity.y = avelocity_y;
+       
+       //g_PlayerFuncs.ClientPrintAll(HUD_PRINTTALK,"\n");
+       //g_PlayerFuncs.ClientPrintAll(HUD_PRINTTALK,string(pMonster.pev.sequence) + "\n");
+       //g_PlayerFuncs.ClientPrintAll(HUD_PRINTTALK,string(pMonster.m_GaitActivity) + "\n");
+       //g_PlayerFuncs.ClientPrintAll(HUD_PRINTTALK,string(pMonster.m_Activity) + " " + string(pMonster.m_IdealActivity) + "\n");
+       //g_PlayerFuncs.ClientPrintAll(HUD_PRINTTALK,string(pMonster.m_MonsterState) + " " + string(pMonster.m_IdealMonsterState) + " " + string(pMonster.GetIdealState())  + "\n");
+       //g_PlayerFuncs.ClientPrintAll(HUD_PRINTTALK, string(pMonster.pev.angles.y) + " " +  string(pMonster.pev.ideal_yaw) + " " + string(pMonster.FlYawDiff()) + "\n");
+       
+       // pMonster.m_MonsterState == MONSTERSTATE_SCRIPT
+       // pMonster.m_MonsterState=MONSTERSTATE_IDLE
+       // pMonster.m_Activity=ACT_IDLE
+       // MONSTERSTATE_SCRIPT
+              
+       if( pMonster.m_Activity==ACT_WALK or pMonster.m_Activity==ACT_RUN or pMonster.m_Activity==ACT_WALK_HURT
+           or pMonster.m_Activity==ACT_RUN_HURT or pMonster.m_Activity==ACT_WALK_SCARED or pMonster.m_Activity==ACT_RUN_SCARED)
+       {
+           pMonster.pev.angles.y = pMonster.pev.ideal_yaw;
+           pMonster.pev.avelocity.y = 0.0f;
+       }
+       else
+       {
+           pMonster.pev.avelocity.y = avelocity_y;
+       }
+       
        
        if (pMonster.FlYawDiff()!=0.0f)
        {
-       
           if (Math.RandomLong(0,100) <= 50)
           {
              g_Scheduler.SetTimeout("monster_pain",Math.RandomFloat(0,0.1f),@pMonster);
-          }
-       
-       //
-       // //g_PlayerFuncs.ClientPrintAll(HUD_PRINTTALK,"\n");
-       // g_PlayerFuncs.ClientPrintAll(HUD_PRINTTALK,string(pMonster.pev.sequence) + "\n");
-       // g_PlayerFuncs.ClientPrintAll(HUD_PRINTTALK,string(pMonster.m_GaitActivity) + "\n");
-       // g_PlayerFuncs.ClientPrintAll(HUD_PRINTTALK,string(pMonster.m_Activity) + " " + string(pMonster.m_IdealActivity) + "\n");
-       // g_PlayerFuncs.ClientPrintAll(HUD_PRINTTALK,string(pMonster.m_MonsterState) + " " + string(pMonster.m_IdealMonsterState) + " " + string(pMonster.GetIdealState())  + "\n");
-       // //g_PlayerFuncs.ClientPrintAll(HUD_PRINTTALK, string(pMonster.pev.angles.y) + " " +  string(pMonster.pev.ideal_yaw) + " " + string(pMonster.FlYawDiff()) + "\n");
-       // //g_PlayerFuncs.ClientPrintAll(HUD_PRINTTALK, string(pMonster.pev.angles.ToString()) + "\n");
-       // //g_PlayerFuncs.ClientPrintAll(HUD_PRINTTALK, string(pMonster.pev.avelocity.y) + "\n");
-       // 
-       // g_PlayerFuncs.ClientPrintAll(HUD_PRINTTALK,"\n");
-       //
+          } 
+          
        }
    
    }
@@ -1156,8 +1240,8 @@ void monster_restore(CBaseMonster@ pMonster)
 {
    if (pMonster !is null && pMonster.IsAlive())
    {
-      pMonster.pev.angles.y = 0.0f;
-      pMonster.pev.ideal_yaw = 0.0f;
+      pMonster.pev.angles.y = pMonster.pev.ideal_yaw;
+      //pMonster.pev.ideal_yaw = 0.0f;
       pMonster.pev.avelocity.y = 0.0f;
       //pMonster.m_MonsterState = MONSTERSTATE_SCRIPT;
       //pMonster.m_IdealMonsterState = MONSTERSTATE_SCRIPT;
@@ -1191,7 +1275,7 @@ void play_sound_zombie(CBasePlayer@ pPlayer,int in_pitch)
 {
    if (pPlayer.IsConnected() and pPlayer !is null and pPlayer.IsAlive())
    {
-       play_sound(pPlayer,CHAN_AUTO,g_soundfile_zombie_autotune,0.3f,in_pitch,true);
+       play_sound(pPlayer,CHAN_AUTO,g_soundfile_zombie_autotune,1.0f,0.3f,in_pitch,true);
        pPlayer.ShowOverheadSprite(g_SpriteName, 56.0f, 2.25f);
    }
 }
@@ -1201,19 +1285,19 @@ void play_sound_scream(CBasePlayer@ pPlayer,int in_pitch)
    if (pPlayer.IsConnected() and pPlayer !is null and pPlayer.IsAlive())
    {
        string snd_file = g_soundfiles_scream[uint(Math.RandomLong(0,g_soundfiles_scream.length()-1))];  
-       play_sound(pPlayer,CHAN_AUTO,snd_file,0.3f,in_pitch,true);
+       play_sound(pPlayer,CHAN_AUTO,snd_file,1.0f,0.3f,in_pitch,true);
        pPlayer.ShowOverheadSprite(g_SpriteName, 56.0f, 2.25f);
    }
 }
 
 //Emit sound centered at pPlayer
-void play_sound(CBasePlayer@ pPlayer,SOUND_CHANNEL audio_channel,string snd_file,float attenuation=0.3f,int pitch=100,bool setOrigin=true)
+void play_sound(CBasePlayer@ pPlayer,SOUND_CHANNEL audio_channel,string snd_file,float volume=1.0f,float attenuation=0.3f,int pitch=100,bool setOrigin=true)
 {
 
     //g_PlayerFuncs.ClientPrintAll(HUD_PRINTTALK, "playsound " + snd_file + "\n");
     if (all_volumes_1)
     {
-       g_SoundSystem.PlaySound(pPlayer.edict(),audio_channel,snd_file,1.0f,attenuation,0,pitch,0,setOrigin,pPlayer.pev.origin);
+       g_SoundSystem.PlaySound(pPlayer.edict(),audio_channel,snd_file,volume,attenuation,0,pitch,0,setOrigin,pPlayer.pev.origin);
     }
     else
     {
@@ -1232,7 +1316,7 @@ void play_sound(CBasePlayer@ pPlayer,SOUND_CHANNEL audio_channel,string snd_file
     		if (localVol > 0)
     	    {
     		   g_SoundSystem.PlaySound(pPlayer.edict(), audio_channel, snd_file,
-                                       localVol, attenuation, 0, pitch, plr_receiving.entindex(),setOrigin,pPlayer.pev.origin);
+                                       localVol*volume, attenuation, 0, pitch, plr_receiving.entindex(),setOrigin,pPlayer.pev.origin);
             }
     	}
 
@@ -1262,7 +1346,7 @@ HookReturnCode PlayerSpawn(CBasePlayer@ pPlayer)
   
   if (pPlayer.HasNamedPlayerItem("weapon_9mmhandgun") !is null or pPlayer.HasNamedPlayerItem("weapon_glock") !is null)
   {
-      play_sound(pPlayer,CHAN_AUTO,g_soundfiles_ppk[uint(Math.RandomLong(0,g_soundfiles_ppk.length()-1))],0.3f,100,true);
+      play_sound(pPlayer,CHAN_AUTO,g_soundfiles_ppk[uint(Math.RandomLong(0,g_soundfiles_ppk.length()-1))],1.0f,0.3f,100,true);
   }
   
   array_imded[pPlayer.entindex()-1]=false;
@@ -1281,12 +1365,6 @@ HookReturnCode PlayerKilled(CBasePlayer@ pPlayer, CBaseEntity@ pAttacker, int iG
 HookReturnCode MapChange()
 {
   g_Scheduler.ClearTimerList();
-  race_happening = false;
-  if (speed_disableGoto)
-  {
-      g_EngineFuncs.ServerCommand("as_command .goto_endrace\n");
-      g_EngineFuncs.ServerExecute();
-  }
   return HOOK_CONTINUE;
 }
 
