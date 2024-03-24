@@ -1,5 +1,5 @@
 const string g_SoundFile = "scripts/plugins/cfg/ChatSounds.txt";
-const float g_Delay = 0.08; //minimum time in seconds between chat sounds for the same player
+const float g_Delay = 0.1f; //minimum time in seconds between chat sounds for the same player
 const string g_SpriteName = 'sprites/bubble.spr';
 
 dictionary g_SoundList;
@@ -12,9 +12,55 @@ bool dental; //simpsons meme
 bool all_volumes_1 = true; //track if all connected players .csvolume is 1
 //bool payne_music = false;
 
+// Input event type sound triggers here and how long a player must wait before they can trigger again.
+// BENEFIT: these sounds will play in CHAN_STREAM, they are less likey to get cut off.
+const dictionary interrupt_dict =
+{
+{'duke',20.0f},
+{'caramel',15.0f},
+{'funky',11.0f},
+{'zombie',9.0f},
+{'speed',20.0f},
+{'isdead',3.0f},
+{'chocobo',5.0f},
+{'war!',10.0f},
+{'hero',25.0f},
+{'kickgum',17.0f},
+{'vengabus',14.0f},
+{'bandit',14.0f},
+{'scha',15.0f},
+{'onlything',13.0f},
+{'godhand',13.0f},
+{'dracula',7.0f},
+{'wombo',8.0f},
+{'tbc',11.0f},
+{'wtfboom',8.0f},
+{'iamthestorm',8.0f},
+{'ps2',15.0f},
+{'ps1',14.0f},
+{'duke2',12.0f},
+{'rick',10.0f},
+{'rules',9.0f},
+{'damedane',6.0f},
+{'suicide',9.0f},
+{'standing',12.0f}
+};
+
+//array for tracking when to ignore player chatsounds for certain events
+array<bool> array_event(g_Engine.maxClients, false);
+
+void pPlayer_event(CBasePlayer@ pPlayer,bool state=true)
+{
+    if (pPlayer.IsConnected() and pPlayer !is null)
+       array_event[pPlayer.entindex()-1] = state;
+
+} 
+
 //nishiki timing game
 bool nishiki = false;
 bool nishiki_timing = false;
+bool nishiki_stage = false;
+array<bool> nishiki_fail(g_Engine.maxClients, false);
 int nishiki_pitch;
 
 const array<string> g_soundfiles_duke =
@@ -97,7 +143,6 @@ const array<string> g_soundfiles_scream =
 "chat/scientist/scream2.wav",
 "chat/scientist/scream3.wav",
 "chat/scientist/scream04.wav",
-"chat/scientist/scream1.wav",
 "chat/scientist/scream05.wav",
 "chat/scientist/scream06.wav",
 "chat/scientist/scream6.wav",
@@ -107,9 +152,9 @@ const array<string> g_soundfiles_scream =
 "chat/scientist/scream20.wav",
 "chat/scientist/scream22.wav",
 "chat/scientist/scream24.wav",
-"chat/scientist/scream25.wav",
-"chat/scientist/cough.wav",
-"chat/scientist/sneeze.wav"
+"chat/scientist/scream25.wav"
+//"chat/scientist/cough.wav",
+//"chat/scientist/sneeze.wav"
 };
 
 const array<string> g_soundfiles_dracula =
@@ -134,6 +179,16 @@ array<float> arr_race_distances;
 array<bool> clients_ignorespeed(g_Engine.maxClients, false);
 
 array<bool> array_imded(g_Engine.maxClients, false);
+
+
+
+array<bool> array_sciteam(g_Engine.maxClients, false);
+
+void set_sciteam(CBasePlayer@ pPlayer, bool state=true)
+{
+   array_sciteam[pPlayer.entindex()-1] = state;
+}
+
 
 // disables Goto script functionality during race if desired
 // set to false if Goto.as is not being used.
@@ -216,6 +271,9 @@ CClientCommand g_cs("cs", "List all chatsounds console commands", @cs_command);
 CClientCommand g_ListSounds("listsounds", "List all chat sounds", @listsounds_command);
 CClientCommand g_CSVolume("csvolume", "Set volume (0-1) for all chat sounds", @csvolume_command);
 
+// Credits:
+// Thanks Vent Xekart, IronBar, zyiks, ngh, mumblzz, ShaunOfTheLive for testing
+
 void PluginInit()
 {
   g_Module.ScriptInfo.SetAuthor("incognico,gvazdas");
@@ -245,9 +303,9 @@ void print_cs(const CCommand@ pArgs, CBasePlayer@ pPlayer)
     g_PlayerFuncs.SayText(pPlayer, "[chatsounds] To control pitch, say trigger pitch. For example, hello 150 (normal pitch is 100)" + "\n");
     g_PlayerFuncs.SayText(pPlayer, "[chatsounds] To hide chatsounds text, add ' s'. For example, hello s or hello ? s" + "\n");
     g_PlayerFuncs.SayText(pPlayer, "[chatsounds] Other commands: .listsounds .csvolume" + "\n");
-    g_PlayerFuncs.ClientPrint(pPlayer, HUD_PRINTCONSOLE, "[chatsounds] version 2024-03-10\n");
+    g_PlayerFuncs.ClientPrint(pPlayer, HUD_PRINTCONSOLE, "[chatsounds] version 2024-03-23\n");
     g_PlayerFuncs.ClientPrint(pPlayer, HUD_PRINTCONSOLE, "For the latest version go to https://github.com/gvazdas/svencoop\n");
-    //CBasePlayer@ pBot = g_PlayerFuncs.CreateBot("Dipshit"); 
+    CBasePlayer@ pBot = g_PlayerFuncs.CreateBot("Dipshit"); 
     
 }
 
@@ -274,7 +332,6 @@ void TogglePlayerGlow(CBasePlayer@ pPlayer, bool toggle)
 void csvolume_command(const CCommand@ pArgs)
 {
 	CBasePlayer@ pPlayer = g_ConCommandSystem.GetCurrentPlayer();
-	//g_EngineFuncs.ServerPrint("[chatsounds] " + string(pPlayer.pev.netname) + " csvolume console\n");
 	csvolume(pArgs, pPlayer);
 }
 
@@ -311,13 +368,10 @@ void csvolume(const CCommand@ pArgs, CBasePlayer@ pPlayer)
             msg.End();
         }
         
-        //g_EngineFuncs.ServerPrint("[chatsounds] " + string(pPlayer.pev.netname) + " " + steamId + " changed csvolume to " + string(volume_new) + "\n");
-        
         GetActivePlayerIndices();
         if (volume_new<1)
         {
            all_volumes_1=false;
-           //g_EngineFuncs.ServerPrint("[chatsounds] all_volumes_1 is false\n");   
         }
         else
            CheckAllVolumes();
@@ -397,7 +451,10 @@ void MapInit()
   g_Game.PrecacheGeneric(g_SpriteName);
   g_Game.PrecacheModel(g_SpriteName);
   
-  array_imded = array<bool>(g_Engine.maxClients, false); 
+  array_imded = array<bool>(g_Engine.maxClients, false);
+  array_sciteam = array<bool>(g_Engine.maxClients, false);
+  array_event = array<bool>(g_Engine.maxClients, false);
+  nishiki_fail = array<bool>(g_Engine.maxClients, false);
   
   all_volumes_1=true;
   race_happening = false;
@@ -489,6 +546,7 @@ nishiki_timing=true;
 void nishiki_end_sweet()
 {
 nishiki_timing=false;
+nishiki_stage=false;
 }
 
 void nishiki_end()
@@ -567,7 +625,7 @@ void race_end()
  		
  		 if (localVol > 0)
  	     {
-             g_PlayerFuncs.ClientPrint(pPlayer, HUD_PRINTCENTER, "Your score: " + string(int(arr_race_distances[pPlayer_index-1])));
+             g_PlayerFuncs.ClientPrint(pPlayer, HUD_PRINTNOTIFY, "Your score: " + string(int(arr_race_distances[pPlayer_index-1])) + "\n");
              g_PlayerFuncs.ClientPrint(pPlayer, HUD_PRINTCONSOLE, "[chatsounds] Your score: " + string(arr_race_distances[pPlayer_index-1]) + "\n");
          }
          
@@ -654,6 +712,13 @@ HookReturnCode ClientSay(SayParameters@ pParams)
 
     if ( (g_SoundList.exists(soundArg) or soundArg=="secret") and (arr_volumes[pPlayer.entindex()-1]>0) )
     {
+      
+      // If player is being spammy with event-like sounds, interrupt them
+      if (interrupt_dict.exists(soundArg) and array_event[pPlayer.entindex()-1])
+      {
+        pParams.ShouldHide = true;
+        return HOOK_HANDLED;
+      }
     
       const Vector pPlayer_origin = pPlayer.GetOrigin();
       const string steamId = g_EngineFuncs.GetPlayerAuthId(pPlayer.edict());
@@ -670,8 +735,9 @@ HookReturnCode ClientSay(SayParameters@ pParams)
       
             int pitch = 100;
             float volume = 1.0f;
-            bool silent_mode = false;
-            bool hide_sound = false;
+            bool silent_mode = false; //hide chat message if true
+            bool hide_sound = false; //do not play sound if true
+            bool interrupt_player = false; //exit hook prematurely if true
             
             if (numArgs > 1)
             {
@@ -680,7 +746,6 @@ HookReturnCode ClientSay(SayParameters@ pParams)
               
               if (pitchArg=="s")
               {
-                 pParams.ShouldHide = true;
                  silent_mode = true;
               }
               else
@@ -701,13 +766,13 @@ HookReturnCode ClientSay(SayParameters@ pParams)
                         if (pitch < 50)
                         {
                             pitch = 50;
-                            g_PlayerFuncs.ClientPrint(pPlayer, HUD_PRINTCENTER, "chatsounds minimum pitch is 50");
+                            g_PlayerFuncs.ClientPrint(pPlayer, HUD_PRINTCENTER, "chatsounds minimum pitch is 50\n");
                         }
                                           
                         else if (pitch > 255)
                         {
                             pitch = 255;
-                            g_PlayerFuncs.ClientPrint(pPlayer, HUD_PRINTCENTER, "chatsounds maximum pitch is 255");
+                            g_PlayerFuncs.ClientPrint(pPlayer, HUD_PRINTCENTER, "chatsounds maximum pitch is 255\n");
                         }       
                     }
                    }
@@ -732,65 +797,86 @@ HookReturnCode ClientSay(SayParameters@ pParams)
                dental = !dental;
             }
             else if (soundArg=="duke")
+            {
                snd_file = g_soundfiles_duke[uint(Math.RandomLong(0,g_soundfiles_duke.length()-1))];
+            }
             else if (soundArg=="dracula")
+            {
                snd_file = g_soundfiles_dracula[uint(Math.RandomLong(0,g_soundfiles_dracula.length()-1))];
+            }
             else if (soundArg=="speed")
+            {
                snd_file = g_soundfiles_speed[uint(Math.RandomLong(0,g_soundfiles_speed.length()-1))];
+            }
             else if (soundArg=="meow")
                snd_file = g_soundfiles_meow[uint(Math.RandomLong(0,g_soundfiles_meow.length()-1))];
             else if (soundArg=="secret")
                snd_file = g_soundfile_secret;
             else if (soundArg=="funky")
+            {
                snd_file = g_soundfiles_funky[uint(Math.RandomLong(0,g_soundfiles_funky.length()-1))];
+            }
             else if (soundArg=="zombiegoasts")
                snd_file = g_soundfiles_zombiegoasts[uint(Math.RandomLong(0,g_soundfiles_zombiegoasts.length()-1))];
             else if (soundArg=="scream")
                snd_file = g_soundfiles_scream[uint(Math.RandomLong(0,g_soundfiles_scream.length()-1))];   
             else
+            {
                snd_file = string(g_SoundList[soundArg]);
+            }
                
             float attenuation = 0.3f;
             bool setOrigin=true;
             SOUND_CHANNEL audio_channel = CHAN_AUTO;
+            if (interrupt_dict.exists(soundArg))
+            {
+               audio_channel = CHAN_STREAM;
+            }
+            
             if (soundArg=="speed")
             {
                pitch = 100;
                attenuation = 0.0f;
                setOrigin = false;
                audio_channel = CHAN_MUSIC;
-               if (race_happening || !pPlayer.IsAlive())
-                  return HOOK_HANDLED;
-            }
-            else if (soundArg=="funky")
-            {
-               if (!pPlayer.IsAlive())
-                  return HOOK_HANDLED;
+               if (race_happening or !pPlayer.IsAlive())
+                  interrupt_player=true;
+               
             }
             else if (soundArg=="standing")
             {
+               if (!pPlayer.IsAlive())
+                  interrupt_player=true;
                audio_channel = CHAN_STREAM;
             }
             else if (soundArg=="nishiki")
             {
-               if (nishiki)
-                  return HOOK_HANDLED;
-                  
-                nishiki=true;
-                nishiki_pitch = pitch;
-                nishiki_timing=false;
-                float t_nishiki_delay = 2.33f*(100/float(pitch));
-                float t_nishiki_hold = 0.34f*(100/float(pitch));
-                float t_nishiki_total = 3.0f*(100/float(pitch));
-                
-                g_Scheduler.SetTimeout("nishiki_sweet", t_nishiki_delay);
-                g_Scheduler.SetTimeout("nishiki_end_sweet", t_nishiki_delay+t_nishiki_hold);
-                g_Scheduler.SetTimeout("nishiki_end", t_nishiki_total); 
+                if (nishiki)
+                  interrupt_player=true;
+                else
+                {
+                    nishiki_fail = array<bool>(g_Engine.maxClients, false);
+                    nishiki=true;
+                    nishiki_pitch = pitch;
+                    nishiki_timing=false;
+                    nishiki_stage=true;
+                    float t_nishiki_randomdelay = Math.RandomFloat(0.0f,1.0f);
+                    float t_nishiki_delay = 2.31f*(100/float(pitch));
+                    float t_nishiki_hold = 0.32f*(100/float(pitch));
+                    float t_nishiki_total = 3.0f*(100/float(pitch));
+                    
+                    g_Scheduler.SetTimeout("play_sound_nishiki",t_nishiki_randomdelay,@pPlayer,pitch);
+                    g_Scheduler.SetTimeout("nishiki_sweet", t_nishiki_delay+t_nishiki_randomdelay);
+                    g_Scheduler.SetTimeout("nishiki_end_sweet", t_nishiki_delay+t_nishiki_hold+t_nishiki_randomdelay);
+                    g_Scheduler.SetTimeout("nishiki_end", t_nishiki_total+t_nishiki_randomdelay);
+                    
+                    hide_sound = true;
+                }
                
             }
             else if (soundArg=="pussy")
             {
-               if (nishiki_timing)
+               if (nishiki_timing and !nishiki_fail[pPlayer.entindex()-1])
                {
                     pitch = nishiki_pitch;
                     
@@ -815,9 +901,30 @@ HookReturnCode ClientSay(SayParameters@ pParams)
                }
                else if (nishiki)
                {
+                   if (!nishiki_fail[pPlayer.entindex()-1])
+                   {
+                      if (nishiki_stage)
+                         g_PlayerFuncs.ClientPrint(pPlayer, HUD_PRINTNOTIFY, "Too early!\n");
+                      else
+                         g_PlayerFuncs.ClientPrint(pPlayer, HUD_PRINTNOTIFY, "Too late!\n");
+                      nishiki_fail[pPlayer.entindex()-1] = true;
+                   }
                    return HOOK_HANDLED;
                }
                
+            }
+            
+            if (interrupt_dict.exists(soundArg))
+            {
+               float hold_interrupt = float(interrupt_dict[soundArg])*(100.0/float(pitch));
+               pPlayer_event(pPlayer,true);
+               g_Scheduler.SetTimeout("pPlayer_event",hold_interrupt,@pPlayer,false);
+            }
+            
+            if (interrupt_player)
+            {
+               pParams.ShouldHide = true;
+               return HOOK_HANDLED;
             }
             
             if (soundArg == 'medic' || soundArg == 'meedic') {
@@ -827,20 +934,11 @@ HookReturnCode ClientSay(SayParameters@ pParams)
             else
             {
             
-                if (!pParams.ShouldHide && numArgs > 2)
+                if (numArgs > 2)
                 {
                     if (pArguments.Arg(2).ToLowercase()=="s")
-                       pParams.ShouldHide = true;
+                       silent_mode = true;
                 }
-                
-                if (soundArg == 'imded' and (array_imded[pPlayer.entindex()-1]) )
-                {
-                   hide_sound=true;
-                   pParams.ShouldHide = true;
-                }
-                
-                if (!hide_sound)
-                   play_sound(pPlayer,audio_channel,snd_file,volume,attenuation,pitch,setOrigin);
             	
             	// Players near pPlayer should join in the color cycle.
             	if (soundArg == 'caramel')
@@ -849,7 +947,7 @@ HookReturnCode ClientSay(SayParameters@ pParams)
             	   float t_caramel_delaystart = 1.3f*(100/float(pitch));
             	   float t_caramel =  1/float(2.75)*(100/float(pitch));
             	   float t_caramel_length = 15.0f*(100/float(pitch));
-            	   float caramel_distance = 700.0f;
+            	   float caramel_distance = 1000.0f;
             	   uint i_colorgroup_start = Math.RandomLong(0,g_caramel_all_groups.getSize()-1);
             	   array<Vector> colorgroup;
             	   Vector color;
@@ -902,15 +1000,16 @@ HookReturnCode ClientSay(SayParameters@ pParams)
             	// Turbo charge melee speed
             	else if (soundArg == 'standing')
             	{
-            	   if (pPlayer.HasNamedPlayerItem("weapon_crowbar") !is null and pPlayer.IsAlive())
+            	   if ( ( pPlayer.HasNamedPlayerItem("weapon_crowbar") !is null) and pPlayer.IsAlive() )
             	   {
             	   
-            	     float standing_updatetime = 0.09f + Math.RandomFloat(-0.01f,0.01f);
+            	     float standing_updatetime = 0.09f + Math.RandomFloat(-0.02f,0.01f);
             	     standing_updatetime *= (100/float(pitch));
             	     float standing_delay = 2.9f*(100/float(pitch));
             	     float standing_total = 11.5f*(100/float(pitch));
-            	   
+            	     
             	     CBasePlayerWeapon@ pPlayer_crowbar = pPlayer.HasNamedPlayerItem("weapon_crowbar").GetWeaponPtr();
+            	     //CBasePlayerWeapon@ pPlayer_wrench = pPlayer.HasNamedPlayerItem("weapon_wrench").GetWeaponPtr();
             	     
             	     float temp_time = standing_delay;
             	     g_Scheduler.SetTimeout("weapon_swap",temp_time/float(2),@pPlayer,@pPlayer_crowbar); 
@@ -989,7 +1088,6 @@ HookReturnCode ClientSay(SayParameters@ pParams)
             	
             	// If nearby player model is zombie, respond with hard hitting social commentary
             	else if (soundArg == 'zombie' and (g_EngineFuncs.GetInfoKeyBuffer(pPlayer.edict()).GetValue("model") != "zombie") )
-            	//else if (soundArg == 'zombie')
             	{
             	
             	   float zombie_distance = 2000.0f;
@@ -1013,9 +1111,16 @@ HookReturnCode ClientSay(SayParameters@ pParams)
             	// Make nearby players emit scream sounds
             	else if (soundArg == 'sciteam')
             	{
+            	   
+            	   if (array_sciteam[pPlayer.entindex()-1])
+            	      interrupt_player=true;
+            	   else
+            	      set_sciteam(@pPlayer,true);
             	
             	   float scream_distance = 3000.0f;
             	   float t_scream_delaystart;
+            	   float t_scream_total = 2.5f * (100/float(pitch));
+            	   g_Scheduler.SetTimeout("set_sciteam",t_scream_total,@pPlayer,false); 
             	   
             	   for (uint i = 0; i < arr_active_players.length(); i++)
                    {
@@ -1035,65 +1140,74 @@ HookReturnCode ClientSay(SayParameters@ pParams)
             	}
             	
             	// Make npcs around the player spin and emit pain sounds
-            	else if (soundArg == "funky" or soundArg == "speen" or soundArg == "speeen")
-            	{
-            	   
-            	   float funky_distance = 3000.0f;
-            	   
-            	   float funky_duration;
-            	   if (soundArg == "funky")
-            	      funky_duration = 11.0f;
-            	   else
-            	      funky_duration = 3.5f;
-            	   
-            	   funky_duration *= (100/float(pitch));
-            	   float funky_updatetime = 0.2f;
-            	   
-            	   for (int i = 1; i < (g_Engine.maxEntities); i++)
-                   {
-                      edict_t@ temp_edict = g_EngineFuncs.PEntityOfEntIndex(i);
-                      CBaseEntity@ pEntity = g_EntityFuncs.Instance(temp_edict);
-                      if (pEntity !is null and !pEntity.IsPlayer() and pEntity.IsAlive())
-                      {
-                            if (pPlayer_origin.opSub(pEntity.GetOrigin()).Length() <= funky_distance)
-                            {
-                            CBaseMonster@ pMonster = cast<CBaseMonster@>(pEntity);
-                            
-                            if (Math.RandomLong(0,1)==int32(0))
-                            {
-                               pMonster.pev.avelocity.y = Math.RandomFloat(500.0f,2000.0f);
-                            }
-                            else
-                            {
-                               pMonster.pev.avelocity.y = Math.RandomFloat(-500.0f,-2000.0f);
-                            }
-                            
-                            pMonster.pev.avelocity.y /= (100/float(pitch));
-                            
-                            float temp_time = funky_updatetime;
-                            while (temp_time<=funky_duration)
-                            {
-                               
-                               g_Scheduler.SetTimeout("monster_rotate",temp_time,@pMonster,pMonster.pev.avelocity.y); 
-                               temp_time += funky_updatetime;
-                               
-                            }
-                            g_Scheduler.SetTimeout("monster_restore",temp_time,@pMonster); 
-                            }
-                      }
-                   }
-                   
-            	}
+            	//else if (soundArg == "funky" or soundArg == "speen" or soundArg == "speeen")
+            	//{
+            	//   
+            	//   float funky_distance = 3000.0f;
+            	//   
+            	//   float funky_duration;
+            	//   if (soundArg == "funky")
+            	//      funky_duration = 11.0f;
+            	//   else
+            	//      funky_duration = 3.5f;
+            	//   
+            	//   funky_duration *= (100/float(pitch));
+            	//   float funky_updatetime = 0.2f;
+            	//   
+            	//   for (int i = 1; i < (g_Engine.maxEntities); i++)
+                //   {
+                //      edict_t@ temp_edict = g_EngineFuncs.PEntityOfEntIndex(i);
+                //      CBaseEntity@ pEntity = g_EntityFuncs.Instance(temp_edict);
+                //      if (pEntity !is null and !pEntity.IsPlayer() and pEntity.IsAlive())
+                //      {
+                //            if (pPlayer_origin.opSub(pEntity.GetOrigin()).Length() <= funky_distance)
+                //            {
+                //            CBaseMonster@ pMonster = cast<CBaseMonster@>(pEntity);
+                //            
+                //            if (Math.RandomLong(0,1)==int32(0))
+                //            {
+                //               pMonster.pev.avelocity.y = Math.RandomFloat(500.0f,2000.0f);
+                //            }
+                //            else
+                //            {
+                //               pMonster.pev.avelocity.y = Math.RandomFloat(-500.0f,-2000.0f);
+                //            }
+                //            
+                //            pMonster.pev.avelocity.y /= (100/float(pitch));
+                //            
+                //            float temp_time = funky_updatetime;
+                //            while (temp_time<=funky_duration)
+                //            {
+                //               
+                //               g_Scheduler.SetTimeout("monster_rotate",temp_time,@pMonster,pMonster.pev.avelocity.y); 
+                //               temp_time += funky_updatetime;
+                //               
+                //            }
+                //            g_Scheduler.SetTimeout("monster_restore",temp_time,@pMonster); 
+                //            }
+                //      }
+                //   }
+                //   
+            	//}
             	
             	else if (soundArg == "imded" and pPlayer.IsAlive())
             	{
             	   g_Scheduler.SetTimeout("gib_player",2.0f*(100/float(pitch)),@pPlayer);
-            	   array_imded[pPlayer.entindex()-1] = true; 
+            	   if (array_imded[pPlayer.entindex()-1])
+                      interrupt_player=true;
+                   else
+            	      array_imded[pPlayer.entindex()-1] = true; 
         	    }
             	
-            	
-            	if (!silent_mode)
+            	if (!silent_mode and !hide_sound and !interrupt_player)
             	   pPlayer.ShowOverheadSprite(g_SpriteName, 56.0f, 2.25f);
+        	    
+        	    if (!hide_sound and !interrupt_player)
+                   play_sound(pPlayer,audio_channel,snd_file,volume,attenuation,pitch,setOrigin);
+                
+                if (silent_mode or interrupt_player)
+            	   pParams.ShouldHide = true;
+
             
             }
 
@@ -1129,6 +1243,7 @@ HookReturnCode ClientSay(SayParameters@ pParams)
        {
           listsounds(pArguments, pPlayer);
           g_PlayerFuncs.SayText(pPlayer, "[chatsounds] See console.\n");
+          g_PlayerFuncs.ClientPrint(pPlayer, HUD_PRINTNOTIFY, "See console.\n");
           pParams.ShouldHide = true;
           return HOOK_HANDLED;
        }
@@ -1184,6 +1299,7 @@ HookReturnCode ClientDisconnect(CBasePlayer@ pPlayer)
   arr_volumes[pPlayer.entindex()-1] = 1.0f;
   GetActivePlayerIndices();
   CheckAllVolumes();
+  pPlayer_event(pPlayer,false);
   
   if (race_happening)
      arr_race_distances[pPlayer.entindex()-1] = 0.0f;
@@ -1273,16 +1389,25 @@ void gib_player(CBasePlayer@ pPlayer)
 //SetTimeout didn't work with play_sound lol idk why
 void play_sound_zombie(CBasePlayer@ pPlayer,int in_pitch)
 {
-   if (pPlayer.IsConnected() and pPlayer !is null and pPlayer.IsAlive())
+   if (pPlayer.IsConnected() and pPlayer !is null)
    {
        play_sound(pPlayer,CHAN_AUTO,g_soundfile_zombie_autotune,1.0f,0.3f,in_pitch,true);
        pPlayer.ShowOverheadSprite(g_SpriteName, 56.0f, 2.25f);
    }
 }
 
+void play_sound_nishiki(CBasePlayer@ pPlayer,int in_pitch)
+{
+   if (pPlayer.IsConnected() and pPlayer !is null)
+   {
+       play_sound(pPlayer,CHAN_AUTO,string(g_SoundList["nishiki"]),1.0f,0.3f,in_pitch,true);
+       pPlayer.ShowOverheadSprite(g_SpriteName, 56.0f, 2.25f);
+   }
+}
+
 void play_sound_scream(CBasePlayer@ pPlayer,int in_pitch)
 {
-   if (pPlayer.IsConnected() and pPlayer !is null and pPlayer.IsAlive())
+   if (pPlayer.IsConnected() and pPlayer !is null)
    {
        string snd_file = g_soundfiles_scream[uint(Math.RandomLong(0,g_soundfiles_scream.length()-1))];  
        play_sound(pPlayer,CHAN_AUTO,snd_file,1.0f,0.3f,in_pitch,true);
@@ -1329,12 +1454,14 @@ HookReturnCode ClientPutInServer(CBasePlayer@ pPlayer)
 {
   GetActivePlayerIndices();
   CheckAllVolumes();
+  pPlayer_event(pPlayer,false);
   if (race_happening)
   {
      arr_race_distances[pPlayer.entindex()-1] = 0.0f;
      clients_ignorespeed[pPlayer.entindex()-1]=true;
   }
   array_imded[pPlayer.entindex()-1] = false;
+  array_sciteam[pPlayer.entindex()-1] = false;
   pPlayer_setscale(pPlayer);
   return HOOK_CONTINUE;
 }
@@ -1350,6 +1477,7 @@ HookReturnCode PlayerSpawn(CBasePlayer@ pPlayer)
   }
   
   array_imded[pPlayer.entindex()-1]=false;
+  array_sciteam[pPlayer.entindex()-1] = false;
   
   return HOOK_CONTINUE;
 }

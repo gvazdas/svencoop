@@ -1,4 +1,4 @@
-const float WAIT_TIME = 0.1f;
+const float WAIT_TIME = 5.0f;
 array<float> g_flWaitTime( g_Engine.maxClients + 1, 0.0 );
 
 bool cvar_cache = false;
@@ -61,16 +61,6 @@ HookReturnCode ClientSay( SayParameters@ pParams )
 			if ( pPlayer is null || !pPlayer.IsConnected() )
 				return HOOK_CONTINUE;
 
-			int iPlayer = pPlayer.entindex();
-
-			if ( g_Engine.time - g_flWaitTime[iPlayer] < WAIT_TIME )
-			{
-				pParams.ShouldHide = true;
-				return HOOK_HANDLED;
-			}
-			
-			g_flWaitTime[iPlayer] = g_Engine.time;
-
 			string szPartName = pArguments.Arg( 1 );
 			szPartName.Trim();
 
@@ -100,12 +90,12 @@ HookReturnCode ClientSay( SayParameters@ pParams )
 			if ( g_dNoGoto.exists( szSteamId ) )
 			{
 				g_dNoGoto.delete( szSteamId );
-				g_PlayerFuncs.ClientPrint( pPlayer, HUD_PRINTTALK, "[AS] Players can teleport to you now.\n" );
+				g_PlayerFuncs.ClientPrint( pPlayer, HUD_PRINTNOTIFY, "[AS] Players can teleport to you now.\n" );
 			}
 			else
 			{
 				g_dNoGoto.set( szSteamId, true );
-				g_PlayerFuncs.ClientPrint( pPlayer, HUD_PRINTTALK, "[AS] Nobody can teleport to you now.\n" );
+				g_PlayerFuncs.ClientPrint( pPlayer, HUD_PRINTNOTIFY, "[AS] Nobody can teleport to you now.\n" );
 			}
 
 			return HOOK_CONTINUE;
@@ -137,13 +127,13 @@ bool DoGoto( CBasePlayer@ pPlayer, string& in szPartName, bool bHiden = false )
 {
 	if ( !g_bGotoEnabled )
 	{
-		g_PlayerFuncs.ClientPrint( pPlayer, HUD_PRINTTALK, "[AS] Goto Disabled!\n" );
+		g_PlayerFuncs.ClientPrint( pPlayer, HUD_PRINTNOTIFY, "[AS] Goto Disabled!\n" );
 		return true;
 	}
 
 	if ( szPartName.IsEmpty() )
 	{
-		g_PlayerFuncs.ClientPrint( pPlayer, HUD_PRINTTALK, "[AS] Usage: !goto <part of name>\n" );
+		g_PlayerFuncs.ClientPrint( pPlayer, HUD_PRINTNOTIFY, "[AS] Usage: !goto <part of name>\n" );
 		return true;
 	}
 
@@ -152,7 +142,7 @@ bool DoGoto( CBasePlayer@ pPlayer, string& in szPartName, bool bHiden = false )
 
 	if ( pPlayer.m_afPhysicsFlags & PFLAG_ONBARNACLE != 0 )
 	{
-		//g_PlayerFuncs.ClientPrint( pPlayer, HUD_PRINTTALK, "[AS] Cannot teleport while paralyzed!\n" );
+		g_PlayerFuncs.ClientPrint( pPlayer, HUD_PRINTNOTIFY, "[AS] Cannot teleport while paralyzed!\n" );
 		return true;
 	}
 	
@@ -200,13 +190,13 @@ bool DoGoto( CBasePlayer@ pPlayer, string& in szPartName, bool bHiden = false )
 
 	if ( iCount == 0 || pDestPlayer is null )
 	{
-		g_PlayerFuncs.ClientPrint( pPlayer, HUD_PRINTTALK, "[AS] Could not find '" + szPartName + "' player\n" );
+		g_PlayerFuncs.ClientPrint( pPlayer, HUD_PRINTNOTIFY, "[AS] Could not find '" + szPartName + "' player\n" );
 		return true;
 	}
 
 	if ( iCount > 1 )
 	{
-		g_PlayerFuncs.ClientPrint( pPlayer, HUD_PRINTTALK, "[AS] More than one player matches the pattern\n" );
+		g_PlayerFuncs.ClientPrint( pPlayer, HUD_PRINTNOTIFY, "[AS] More than one player matches the pattern\n" );
 		return true;
 	}
 	
@@ -218,8 +208,8 @@ bool DoGoto( CBasePlayer@ pPlayer, string& in szPartName, bool bHiden = false )
 			
 	if ( g_dNoGoto.exists( szSteamId ) && !IsPlayerServerOwner( pPlayer ) )
 	{
-		g_PlayerFuncs.ClientPrint( pPlayer, HUD_PRINTTALK, "[AS] The Player " + szPlayerName + " disabled goto\n" );
-		//g_PlayerFuncs.ClientPrint( pDestPlayer, HUD_PRINTTALK, "[AS] The Player " + pPlayer.pev.netname + " trying goto you\n" );
+		g_PlayerFuncs.ClientPrint( pPlayer, HUD_PRINTNOTIFY, "[AS] " + szPlayerName + " disabled goto\n" );
+		//g_PlayerFuncs.ClientPrint( pDestPlayer, HUD_PRINTNOTIFY, "[AS] " + pPlayer.pev.netname + " trying goto you\n" );
 		return true;
 	}
 
@@ -228,19 +218,19 @@ bool DoGoto( CBasePlayer@ pPlayer, string& in szPartName, bool bHiden = false )
 
 	if ( pDestPlayer.Classify() != pPlayer.Classify() )
 	{
-		//g_PlayerFuncs.ClientPrint( pPlayer, HUD_PRINTTALK, "[AS] The Player " + szPlayerName + " is not in same team!\n" );
+		g_PlayerFuncs.ClientPrint( pPlayer, HUD_PRINTNOTIFY, "[AS] " + szPlayerName + " is not in same team\n" );
 		return true;
 	}
 
 	if ( !pDestPlayer.IsAlive() )
 	{
-		//g_PlayerFuncs.ClientPrint( pPlayer, HUD_PRINTTALK, "[AS] The Player " + szPlayerName + " is dead\n" );
+		g_PlayerFuncs.ClientPrint( pPlayer, HUD_PRINTNOTIFY, "[AS] " + szPlayerName + " is dead\n" );
 		return true;
 	}
 
 	if ( pDestPlayer.m_flFallVelocity > 230 )
 	{
-		//g_PlayerFuncs.ClientPrint( pPlayer, HUD_PRINTTALK, "[AS] The Player " + szPlayerName + " falling down\n" );
+		g_PlayerFuncs.ClientPrint( pPlayer, HUD_PRINTNOTIFY, "[AS] " + szPlayerName + " is falling down\n" );
 		return false;
 	}
 
@@ -252,13 +242,21 @@ bool DoGoto( CBasePlayer@ pPlayer, string& in szPartName, bool bHiden = false )
 		//	if ( g_pMovableEntList.find( pEntity.GetClassname() ) >= 0 && pEntity.IsMoving() && pEntity.pev.speed != 0 )
 			if ( pEntity.IsMoving() && pEntity.pev.speed != 0 )
 			{
-				//g_PlayerFuncs.ClientPrint( pPlayer, HUD_PRINTTALK, "[AS] The Player " + szPlayerName + " is on an moving object\n" );
+				g_PlayerFuncs.ClientPrint( pPlayer, HUD_PRINTNOTIFY, "[AS] " + szPlayerName + " is on a moving object\n" );
 				return false;
 			}
 		}
 	}
-
-	//g_PlayerFuncs.ClientPrint( pDestPlayer, HUD_PRINTTALK, "[AS] To disable/enable goto type !nogoto\n" );
+	
+	
+	int iPlayer = pPlayer.entindex();
+	float d_time = g_Engine.time - g_flWaitTime[iPlayer];
+ 	if ( d_time < WAIT_TIME )
+ 	{
+ 	    g_PlayerFuncs.ClientPrint( pPlayer, HUD_PRINTNOTIFY, "[AS] " + "Wait " + string( WAIT_TIME-d_time ) + " seconds\n");
+ 		return false;
+    }
+ 	g_flWaitTime[iPlayer] = g_Engine.time;
 
 	//Duck
 	if ( pDestPlayer.pev.flags & FL_DUCKING != 0 )
