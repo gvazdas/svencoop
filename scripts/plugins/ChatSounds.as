@@ -1174,7 +1174,7 @@ HookReturnCode ClientSay(SayParameters@ pParams)
         	   if (pPlayer.IsAlive())
         	   {
         	       float wtfboom_delay = 1.0f*(100/float(pitch));
-            	   g_Scheduler.SetTimeout("explode_pPlayer",wtfboom_delay,@pPlayer,false);
+            	   g_Scheduler.SetTimeout("explode_pPlayer",wtfboom_delay,@pPlayer);
         	   }
         	   else
         	      interrupt_player=true;
@@ -1231,122 +1231,115 @@ HookReturnCode ClientSay(SayParameters@ pParams)
   return HOOK_CONTINUE;
 }
 
-void explode_pPlayer(CBasePlayer@ pPlayer, bool damage_players=false)
+void explode_pPlayer(CBasePlayer@ pPlayer)
 {
 
-int magnitude = 0;
-
-int ammoindex;
-int ammo;
-
-// Count hand grenades
-if (pPlayer.HasNamedPlayerItem("weapon_handgrenade") !is null)
-{
-    CBasePlayerWeapon@ pPlayer_grenade = pPlayer.HasNamedPlayerItem("weapon_handgrenade").GetWeaponPtr();
-    ammoindex = pPlayer_grenade.PrimaryAmmoIndex();
-    ammo = pPlayer.AmmoInventory(ammoindex);
-    if (ammo>0)
-       magnitude += int(ammo*10);
-
-}
-
-// Count satchels
-if (pPlayer.HasNamedPlayerItem("weapon_satchel") !is null)
-{
-    CBasePlayerWeapon@ pPlayer_satchel = pPlayer.HasNamedPlayerItem("weapon_satchel").GetWeaponPtr();
-    ammoindex = pPlayer_satchel.PrimaryAmmoIndex();
-    ammo = pPlayer.AmmoInventory(ammoindex);
-    if (ammo>0)
-       magnitude += int(ammo*15);
-
-} 
-
-// Count tripmines
-if (pPlayer.HasNamedPlayerItem("weapon_tripmine") !is null)
-{
-    CBasePlayerWeapon@ pPlayer_tripmine = pPlayer.HasNamedPlayerItem("weapon_tripmine").GetWeaponPtr();
-    ammoindex = pPlayer_tripmine.PrimaryAmmoIndex();
-    ammo = pPlayer.AmmoInventory(ammoindex);
-    if (ammo>0)
-       magnitude += int(ammo*15);
-} 
-
-// Count RPG missiles
-if (pPlayer.HasNamedPlayerItem("weapon_rpg") !is null)
-{
-    CBasePlayerWeapon@ pPlayer_rpg = pPlayer.HasNamedPlayerItem("weapon_rpg").GetWeaponPtr();
-    ammoindex = pPlayer_rpg.PrimaryAmmoIndex();
-    ammo = pPlayer.AmmoInventory(ammoindex);
-    if (pPlayer_rpg.m_iClip > 0)
-       ammo += pPlayer_rpg.m_iClip;
-    if (ammo>0)
-       magnitude += int(ammo*10);
-
-} 
-
-// Count m16 grenades
-if (pPlayer.HasNamedPlayerItem("weapon_m16") !is null)
-{
-    CBasePlayerWeapon@ pPlayer_m16 = pPlayer.HasNamedPlayerItem("weapon_m16").GetWeaponPtr();
-    ammoindex = pPlayer_m16.SecondaryAmmoIndex();
-    ammo = pPlayer.AmmoInventory(ammoindex);
-    if (pPlayer_m16.m_iClip2 > 0)
-       ammo += pPlayer_m16.m_iClip2;
-    if (ammo>0)
-       magnitude += int(ammo*10);
-} 
-
-// Count mp5 grenades
-if (pPlayer.HasNamedPlayerItem("weapon_mp5") !is null)
-{
-    CBasePlayerWeapon@ pPlayer_mp5 = pPlayer.HasNamedPlayerItem("weapon_mp5").GetWeaponPtr();
-    ammoindex = pPlayer_mp5.SecondaryAmmoIndex();
-    ammo = pPlayer.AmmoInventory(ammoindex);
-    if (pPlayer_mp5.m_iClip2 > 0)
-       ammo += pPlayer_mp5.m_iClip2;
-    if (ammo>0)
-       magnitude += int(ammo*10);
-} 
-
-// Count crossbow bolts
-if (pPlayer.HasNamedPlayerItem("weapon_crossbow") !is null)
-{
-    CBasePlayerWeapon@ pPlayer_crossbow = pPlayer.HasNamedPlayerItem("weapon_crossbow").GetWeaponPtr();
-    ammoindex = pPlayer_crossbow.PrimaryAmmoIndex();
-    ammo = pPlayer.AmmoInventory(ammoindex);
-    if (pPlayer_crossbow.m_iClip > 0)
-       ammo += pPlayer_crossbow.m_iClip;
-    if (ammo>0)
-       magnitude += int(ammo*2);
-} 
-
-g_PlayerFuncs.ClientPrintAll(HUD_PRINTTALK, string(magnitude) + "\n");
-
-gib_player(pPlayer);
-
-float t_delay = 0.0f;
-if (magnitude>0)
-{
-    if (damage_players)
-       g_EntityFuncs.CreateExplosion(pPlayer.GetOrigin(),Vector(0,0,0),g_EntityFuncs.IndexEnt(0),magnitude,true);
-    else
-       g_EntityFuncs.CreateExplosion(pPlayer.GetOrigin(),Vector(0,0,0),pPlayer.edict(),magnitude,true);
-
-    // Add additional explosions to make it EPIC!!!!! XD
-    int temp_magnitude;
-    while (magnitude>0)
+    int magnitude = 0;
+    int ammoindex;
+    int ammo;
+    
+    // Count hand grenades
+    if (pPlayer.HasNamedPlayerItem("weapon_handgrenade") !is null)
     {
-       t_delay += Math.RandomFloat(0.1f,0.75f);
-       temp_magnitude = Math.RandomLong(10,100);
-       g_Scheduler.SetTimeout("create_explosion",t_delay,@pPlayer,temp_magnitude); 
-       magnitude -= temp_magnitude;
+        CBasePlayerWeapon@ pPlayer_grenade = pPlayer.HasNamedPlayerItem("weapon_handgrenade").GetWeaponPtr();
+        ammoindex = pPlayer_grenade.PrimaryAmmoIndex();
+        ammo = pPlayer.AmmoInventory(ammoindex);
+        if (ammo>0)
+           magnitude += int(ammo*10);
     }
     
-}
+    // Count satchels
+    if (pPlayer.HasNamedPlayerItem("weapon_satchel") !is null)
+    {
+        CBasePlayerWeapon@ pPlayer_satchel = pPlayer.HasNamedPlayerItem("weapon_satchel").GetWeaponPtr();
+        ammoindex = pPlayer_satchel.PrimaryAmmoIndex();
+        ammo = pPlayer.AmmoInventory(ammoindex);
+        if (ammo>0)
+           magnitude += int(ammo*15);
+    } 
+    
+    // Count tripmines
+    if (pPlayer.HasNamedPlayerItem("weapon_tripmine") !is null)
+    {
+        CBasePlayerWeapon@ pPlayer_tripmine = pPlayer.HasNamedPlayerItem("weapon_tripmine").GetWeaponPtr();
+        ammoindex = pPlayer_tripmine.PrimaryAmmoIndex();
+        ammo = pPlayer.AmmoInventory(ammoindex);
+        if (ammo>0)
+           magnitude += int(ammo*15);
+    } 
+    
+    // Count RPG missiles
+    if (pPlayer.HasNamedPlayerItem("weapon_rpg") !is null)
+    {
+        CBasePlayerWeapon@ pPlayer_rpg = pPlayer.HasNamedPlayerItem("weapon_rpg").GetWeaponPtr();
+        ammoindex = pPlayer_rpg.PrimaryAmmoIndex();
+        ammo = pPlayer.AmmoInventory(ammoindex);
+        if (pPlayer_rpg.m_iClip > 0)
+           ammo += pPlayer_rpg.m_iClip;
+        if (ammo>0)
+           magnitude += int(ammo*10);
+    } 
+    
+    // Count m16 grenades
+    if (pPlayer.HasNamedPlayerItem("weapon_m16") !is null)
+    {
+        CBasePlayerWeapon@ pPlayer_m16 = pPlayer.HasNamedPlayerItem("weapon_m16").GetWeaponPtr();
+        ammoindex = pPlayer_m16.SecondaryAmmoIndex();
+        ammo = pPlayer.AmmoInventory(ammoindex);
+        if (pPlayer_m16.m_iClip2 > 0)
+           ammo += pPlayer_m16.m_iClip2;
+        if (ammo>0)
+           magnitude += int(ammo*10);
+    } 
+    
+    // Count mp5 grenades
+    if (pPlayer.HasNamedPlayerItem("weapon_mp5") !is null)
+    {
+        CBasePlayerWeapon@ pPlayer_mp5 = pPlayer.HasNamedPlayerItem("weapon_mp5").GetWeaponPtr();
+        ammoindex = pPlayer_mp5.SecondaryAmmoIndex();
+        ammo = pPlayer.AmmoInventory(ammoindex);
+        if (pPlayer_mp5.m_iClip2 > 0)
+           ammo += pPlayer_mp5.m_iClip2;
+        if (ammo>0)
+           magnitude += int(ammo*10);
+    } 
+    
+    // Count crossbow bolts
+    if (pPlayer.HasNamedPlayerItem("weapon_crossbow") !is null)
+    {
+        CBasePlayerWeapon@ pPlayer_crossbow = pPlayer.HasNamedPlayerItem("weapon_crossbow").GetWeaponPtr();
+        ammoindex = pPlayer_crossbow.PrimaryAmmoIndex();
+        ammo = pPlayer.AmmoInventory(ammoindex);
+        if (pPlayer_crossbow.m_iClip > 0)
+           ammo += pPlayer_crossbow.m_iClip;
+        if (ammo>0)
+           magnitude += int(ammo*2);
+    } 
+    
+    gib_player(pPlayer);
+    
+    float t_delay = 0.0f;
+    if (magnitude>0)
+    {
 
-// Make sure player can't respawn until all explosions are done
-if (pPlayer.m_flRespawnDelayTime <= t_delay)
-   pPlayer.m_flRespawnDelayTime += (1.0f+t_delay-pPlayer.m_flRespawnDelayTime);
+        create_explosion(pPlayer,magnitude);
+    
+        // Add additional explosions to make it EPIC!!!!! XD
+        int temp_magnitude;
+        while (magnitude>0)
+        {
+           gib_player(pPlayer);
+           t_delay += Math.RandomFloat(0.1f,0.75f);
+           temp_magnitude = Math.RandomLong(10,100);
+           g_Scheduler.SetTimeout("create_explosion",t_delay,@pPlayer,temp_magnitude);
+           //g_Scheduler.SetTimeout("gib_player",t_delay,@pPlayer); 
+           magnitude -= temp_magnitude;
+        }
+    }
+    
+    // Make sure player can't respawn until all explosions are done
+    if (pPlayer.m_flRespawnDelayTime <= t_delay)
+       pPlayer.m_flRespawnDelayTime += (1.0f+t_delay-pPlayer.m_flRespawnDelayTime);
 
 }
 
