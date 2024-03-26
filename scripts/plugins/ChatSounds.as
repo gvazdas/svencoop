@@ -3,6 +3,7 @@
 
 // (gvazdas) Credits:
 // Thanks to Vent Xekart, IronBar, zyiks, ngh, mumblzz, ShaunOfTheLive for testing
+// Thanks to everyone in the Sven Co-Op Developers Discord for helping with goldsource non-sense
 // Extreme thanks to Reagy and IronBar for hosting our Sven Co-Op events
 // Created for the Knockout.chat community
 
@@ -285,6 +286,44 @@ const dictionary g_caramel_all_groups =
 {'3',g_caramel_colors_group4},
 {'4',g_caramel_colors_group5},
 {'5',g_caramel_colors_group6}
+};
+
+////
+
+// wtfboom stuff
+
+//explosion points for one count of ammo
+const dictionary explosives_magnitudes =
+{
+{'weapon_handgrenade',10},
+{'weapon_satchel',15},
+{'weapon_tripmine',15},
+{'weapon_rpg',10},
+{'weapon_crossbow',3},
+{'weapon_m16',10},
+{'weapon_mp5',10}
+};
+
+//Primary ammo only
+const array<string> explosives_type1 =
+{
+"weapon_handgrenade",
+"weapon_satchel",
+"weapon_tripmine"
+};
+
+//Primary ammo and primary clip
+const array<string> explosives_type2 =
+{
+"weapon_rpg",
+"weapon_crossbow"
+};
+
+//Secondary ammo, secondary clip
+const array<string> explosives_type3 =
+{
+"weapon_m16",
+"weapon_mp5"
 };
 
 ////
@@ -808,6 +847,7 @@ HookReturnCode ClientSay(SayParameters@ pParams)
             if (interrupt_dict.exists(soundArg))
                audio_channel = CHAN_STREAM;
             
+            
             if (soundArg=="speed")
             {
                pitch = 100;
@@ -819,11 +859,6 @@ HookReturnCode ClientSay(SayParameters@ pParams)
                else
                   snd_file = g_soundfiles_speed[i_race];
                
-            }
-            else if (soundArg=="standing")
-            {
-               if (!pPlayer.IsAlive())
-                  interrupt_player=true;
             }
             else if (soundArg=="nishiki")
             {
@@ -893,20 +928,10 @@ HookReturnCode ClientSay(SayParameters@ pParams)
               hide_sprite=true;
             }
             
-            
-            
-            
             if (interrupt_player)
             {
                pParams.ShouldHide = true;
                return HOOK_HANDLED;
-            }
-            
-            if (interrupt_dict.exists(soundArg))
-            {
-               float hold_interrupt = float(interrupt_dict[soundArg])*(100.0/float(pitch));
-               pPlayer_event(pPlayer,true);
-               g_Scheduler.SetTimeout("pPlayer_event",hold_interrupt,@pPlayer,false);
             }
             
             const Vector pPlayer_origin = pPlayer.GetOrigin();
@@ -971,27 +996,36 @@ HookReturnCode ClientSay(SayParameters@ pParams)
         	// Turbo charge melee speed
         	else if (soundArg == 'standing')
         	{
-        	   if ( ( pPlayer.HasNamedPlayerItem("weapon_crowbar") !is null) and pPlayer.IsAlive() )
+        	   if ( ((pPlayer.HasNamedPlayerItem("weapon_crowbar") !is null) or (pPlayer.HasNamedPlayerItem("weapon_pipewrench") !is null)) and pPlayer.IsAlive() )
         	   {
         	   
         	     float standing_updatetime = 0.08f + Math.RandomFloat(-0.03f,0.01f);
         	     standing_updatetime *= (100/float(pitch));
         	     float standing_delay = 2.9f*(100/float(pitch));
         	     float standing_total = 11.5f*(100/float(pitch));
-        	     
-        	     CBasePlayerWeapon@ pPlayer_crowbar = pPlayer.HasNamedPlayerItem("weapon_crowbar").GetWeaponPtr();
-        	     //CBasePlayerWeapon@ pPlayer_wrench = pPlayer.HasNamedPlayerItem("weapon_wrench").GetWeaponPtr();
-        	     
         	     float temp_time = standing_delay;
-        	     g_Scheduler.SetTimeout("weapon_swap",temp_time/float(2),@pPlayer,@pPlayer_crowbar); 
-                 while (temp_time<=standing_total)
-                 {
-                    g_Scheduler.SetTimeout("crowbar_fast",temp_time,@pPlayer,@pPlayer_crowbar); 
-                    temp_time += standing_updatetime;
-                 }
-                 g_Scheduler.SetTimeout("crowbar_end",temp_time,@pPlayer,@pPlayer_crowbar); 
+        	     
+        	     CBasePlayerWeapon@ pPlayer_melee;
+        	     if (pPlayer.HasNamedPlayerItem("weapon_crowbar") !is null)
+        	        @pPlayer_melee = pPlayer.HasNamedPlayerItem("weapon_crowbar").GetWeaponPtr();
+    	         else if (pPlayer.HasNamedPlayerItem("weapon_pipewrench") !is null)
+    	            @pPlayer_melee = pPlayer.HasNamedPlayerItem("weapon_pipewrench").GetWeaponPtr();
+        	     
+        	     if (pPlayer_melee !is null)
+        	     {
+        	        g_Scheduler.SetTimeout("weapon_swap",temp_time/float(2),@pPlayer,@pPlayer_melee); 
+                    while (temp_time<=standing_total)
+                    {
+                       g_Scheduler.SetTimeout("crowbar_fast",temp_time,@pPlayer,@pPlayer_melee); 
+                       temp_time += standing_updatetime;
+                    }
+                    g_Scheduler.SetTimeout("crowbar_end",temp_time,@pPlayer,@pPlayer_melee); 
+    	         }
         	     
         	   }
+        	   else
+        	      interrupt_player=true;
+        	   
         	}
         	
         	// Start race
@@ -1189,6 +1223,13 @@ HookReturnCode ClientSay(SayParameters@ pParams)
             
             if (silent_mode or interrupt_player)
         	   pParams.ShouldHide = true;
+    	    
+    	    if (interrupt_dict.exists(soundArg) and !interrupt_player)
+            {
+               float hold_interrupt = float(interrupt_dict[soundArg])*(100.0/float(pitch));
+               pPlayer_event(pPlayer,true);
+               g_Scheduler.SetTimeout("pPlayer_event",hold_interrupt,@pPlayer,false);
+            }
 
       }
       else
@@ -1237,93 +1278,58 @@ void explode_pPlayer(CBasePlayer@ pPlayer)
     int magnitude = 0;
     int ammoindex;
     int ammo;
+    string weapon_label;
+    CBasePlayerWeapon@ pPlayer_weapon;
     
-    // Count hand grenades
-    if (pPlayer.HasNamedPlayerItem("weapon_handgrenade") !is null)
+    // Type 1: ammo only
+    for (uint i = 0; i < explosives_type1.length(); i++)
     {
-        CBasePlayerWeapon@ pPlayer_grenade = pPlayer.HasNamedPlayerItem("weapon_handgrenade").GetWeaponPtr();
-        ammoindex = pPlayer_grenade.PrimaryAmmoIndex();
-        ammo = pPlayer.AmmoInventory(ammoindex);
-        if (ammo>0)
-           magnitude += int(ammo*10);
+      weapon_label = explosives_type1[i];
+      if (pPlayer.HasNamedPlayerItem(weapon_label) is null)
+         continue;
+      @pPlayer_weapon = pPlayer.HasNamedPlayerItem(weapon_label).GetWeaponPtr();
+      ammoindex = pPlayer_weapon.PrimaryAmmoIndex();
+      ammo = pPlayer.AmmoInventory(ammoindex);
+      if (ammo>0)
+         magnitude += int(ammo*int(explosives_magnitudes[weapon_label]));
     }
     
-    // Count satchels
-    if (pPlayer.HasNamedPlayerItem("weapon_satchel") !is null)
+    // Type 2: primary ammo and clip
+    for (uint i = 0; i < explosives_type2.length(); i++)
     {
-        CBasePlayerWeapon@ pPlayer_satchel = pPlayer.HasNamedPlayerItem("weapon_satchel").GetWeaponPtr();
-        ammoindex = pPlayer_satchel.PrimaryAmmoIndex();
-        ammo = pPlayer.AmmoInventory(ammoindex);
-        if (ammo>0)
-           magnitude += int(ammo*15);
-    } 
+      weapon_label = explosives_type2[i];
+      if (pPlayer.HasNamedPlayerItem(weapon_label) is null)
+         continue;
+      @pPlayer_weapon = pPlayer.HasNamedPlayerItem(weapon_label).GetWeaponPtr();
+      ammoindex = pPlayer_weapon.PrimaryAmmoIndex();
+      ammo = pPlayer.AmmoInventory(ammoindex);
+      if (pPlayer_weapon.m_iClip > 0)
+         ammo += pPlayer_weapon.m_iClip;
+      if (ammo>0)
+         magnitude += int(ammo*int(explosives_magnitudes[weapon_label]));
+    }
     
-    // Count tripmines
-    if (pPlayer.HasNamedPlayerItem("weapon_tripmine") !is null)
+    // Type 3: secondary ammo and clip
+    for (uint i = 0; i < explosives_type3.length(); i++)
     {
-        CBasePlayerWeapon@ pPlayer_tripmine = pPlayer.HasNamedPlayerItem("weapon_tripmine").GetWeaponPtr();
-        ammoindex = pPlayer_tripmine.PrimaryAmmoIndex();
-        ammo = pPlayer.AmmoInventory(ammoindex);
-        if (ammo>0)
-           magnitude += int(ammo*15);
-    } 
-    
-    // Count RPG missiles
-    if (pPlayer.HasNamedPlayerItem("weapon_rpg") !is null)
-    {
-        CBasePlayerWeapon@ pPlayer_rpg = pPlayer.HasNamedPlayerItem("weapon_rpg").GetWeaponPtr();
-        ammoindex = pPlayer_rpg.PrimaryAmmoIndex();
-        ammo = pPlayer.AmmoInventory(ammoindex);
-        if (pPlayer_rpg.m_iClip > 0)
-           ammo += pPlayer_rpg.m_iClip;
-        if (ammo>0)
-           magnitude += int(ammo*10);
-    } 
-    
-    // Count m16 grenades
-    if (pPlayer.HasNamedPlayerItem("weapon_m16") !is null)
-    {
-        CBasePlayerWeapon@ pPlayer_m16 = pPlayer.HasNamedPlayerItem("weapon_m16").GetWeaponPtr();
-        ammoindex = pPlayer_m16.SecondaryAmmoIndex();
-        ammo = pPlayer.AmmoInventory(ammoindex);
-        if (pPlayer_m16.m_iClip2 > 0)
-           ammo += pPlayer_m16.m_iClip2;
-        if (ammo>0)
-           magnitude += int(ammo*10);
-    } 
-    
-    // Count mp5 grenades
-    if (pPlayer.HasNamedPlayerItem("weapon_mp5") !is null)
-    {
-        CBasePlayerWeapon@ pPlayer_mp5 = pPlayer.HasNamedPlayerItem("weapon_mp5").GetWeaponPtr();
-        ammoindex = pPlayer_mp5.SecondaryAmmoIndex();
-        ammo = pPlayer.AmmoInventory(ammoindex);
-        if (pPlayer_mp5.m_iClip2 > 0)
-           ammo += pPlayer_mp5.m_iClip2;
-        if (ammo>0)
-           magnitude += int(ammo*10);
-    } 
-    
-    // Count crossbow bolts
-    if (pPlayer.HasNamedPlayerItem("weapon_crossbow") !is null)
-    {
-        CBasePlayerWeapon@ pPlayer_crossbow = pPlayer.HasNamedPlayerItem("weapon_crossbow").GetWeaponPtr();
-        ammoindex = pPlayer_crossbow.PrimaryAmmoIndex();
-        ammo = pPlayer.AmmoInventory(ammoindex);
-        if (pPlayer_crossbow.m_iClip > 0)
-           ammo += pPlayer_crossbow.m_iClip;
-        if (ammo>0)
-           magnitude += int(ammo*2);
-    } 
+      weapon_label = explosives_type3[i];
+      if (pPlayer.HasNamedPlayerItem(weapon_label) is null)
+         continue;
+      @pPlayer_weapon = pPlayer.HasNamedPlayerItem(weapon_label).GetWeaponPtr();
+      ammoindex = pPlayer_weapon.SecondaryAmmoIndex();
+      ammo = pPlayer.AmmoInventory(ammoindex);
+      if (pPlayer_weapon.m_iClip2 > 0)
+         ammo += pPlayer_weapon.m_iClip2;
+      if (ammo>0)
+         magnitude += int(ammo*int(explosives_magnitudes[weapon_label]));
+    }
     
     gib_player(pPlayer);
     
     float t_delay = 0.0f;
     if (magnitude>0)
     {
-
         create_explosion(pPlayer,magnitude);
-    
         // Add additional explosions to make it EPIC!!!!! XD
         int temp_magnitude;
         while (magnitude>0)
@@ -1331,8 +1337,7 @@ void explode_pPlayer(CBasePlayer@ pPlayer)
            gib_player(pPlayer);
            t_delay += Math.RandomFloat(0.1f,0.75f);
            temp_magnitude = Math.RandomLong(10,100);
-           g_Scheduler.SetTimeout("create_explosion",t_delay,@pPlayer,temp_magnitude);
-           //g_Scheduler.SetTimeout("gib_player",t_delay,@pPlayer); 
+           g_Scheduler.SetTimeout("create_explosion",t_delay,@pPlayer,temp_magnitude*2);
            magnitude -= temp_magnitude;
         }
     }
@@ -1348,8 +1353,6 @@ void create_explosion(CBasePlayer@ pPlayer,int magnitude=100)
 {
 g_EntityFuncs.CreateExplosion(pPlayer.GetOrigin(),Vector(0,0,0),pPlayer.edict(),magnitude,true);
 }
-
-
 
 void weapon_swap(CBasePlayer@ pPlayer, CBasePlayerWeapon@ pPlayer_crowbar)
 {
