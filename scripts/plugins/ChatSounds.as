@@ -3,7 +3,7 @@
 
 // (gvazdas) Credits:
 // Thanks to Vent Xekart, IronBar, zyiks, ngh, mumblzz, ShaunOfTheLive for testing
-// Extreme thanks to Reagy for hosting our main Sven Co-Op server
+// Extreme thanks to Reagy and IronBar for hosting our Sven Co-Op events
 // Created for the Knockout.chat community
 
 void print_cs(const CCommand@ pArgs, CBasePlayer@ pPlayer)
@@ -11,9 +11,9 @@ void print_cs(const CCommand@ pArgs, CBasePlayer@ pPlayer)
     g_PlayerFuncs.SayText(pPlayer, "[chatsounds] To control pitch, say trigger pitch. For example, hello 150 (normal pitch is 100)" + "\n");
     g_PlayerFuncs.SayText(pPlayer, "[chatsounds] To hide chatsounds text, add ' s'. For example, hello s or hello ? s" + "\n");
     g_PlayerFuncs.SayText(pPlayer, "[chatsounds] Other commands: .listsounds .csvolume" + "\n");
-    g_PlayerFuncs.ClientPrint(pPlayer, HUD_PRINTCONSOLE, "[chatsounds] version 2024-03-24\n");
+    g_PlayerFuncs.ClientPrint(pPlayer, HUD_PRINTCONSOLE, "[chatsounds] version 2024-03-25\n");
     g_PlayerFuncs.ClientPrint(pPlayer, HUD_PRINTCONSOLE, "For the latest version go to https://github.com/gvazdas/svencoop\n");
-    //CBasePlayer@ pBot = g_PlayerFuncs.CreateBot("Dipshit");  
+    //CBasePlayer@ pBot = g_PlayerFuncs.CreateBot("Dipshit");
 }
 
 void cs_command(const CCommand@ pArgs )
@@ -69,6 +69,7 @@ const dictionary interrupt_dict =
 {'suicide',9.0f},
 {'standing',12.0f},
 {'nishiki',2.0f},
+{'wtfboom',8.0f},
 {"sciteam", 3.0f}
 };
 
@@ -1167,6 +1168,18 @@ HookReturnCode ClientSay(SayParameters@ pParams)
         	   }
     	    
     	    }
+    	    else if (soundArg == "wtfboom")
+        	{
+        	   
+        	   if (pPlayer.IsAlive())
+        	   {
+        	       float wtfboom_delay = 1.0f*(100/float(pitch));
+            	   g_Scheduler.SetTimeout("explode_pPlayer",wtfboom_delay,@pPlayer,false);
+        	   }
+        	   else
+        	      interrupt_player=true;
+    	    
+    	    }
         	
         	if (!silent_mode and !hide_sound and !interrupt_player and !hide_sprite)
         	   pPlayer.ShowOverheadSprite(g_SpriteName, 56.0f, 2.25f);
@@ -1217,6 +1230,133 @@ HookReturnCode ClientSay(SayParameters@ pParams)
   }
   return HOOK_CONTINUE;
 }
+
+void explode_pPlayer(CBasePlayer@ pPlayer, bool damage_players=false)
+{
+
+int magnitude = 0;
+
+int ammoindex;
+int ammo;
+
+// Count hand grenades
+if (pPlayer.HasNamedPlayerItem("weapon_handgrenade") !is null)
+{
+    CBasePlayerWeapon@ pPlayer_grenade = pPlayer.HasNamedPlayerItem("weapon_handgrenade").GetWeaponPtr();
+    ammoindex = pPlayer_grenade.PrimaryAmmoIndex();
+    ammo = pPlayer.AmmoInventory(ammoindex);
+    if (ammo>0)
+       magnitude += int(ammo*10);
+
+}
+
+// Count satchels
+if (pPlayer.HasNamedPlayerItem("weapon_satchel") !is null)
+{
+    CBasePlayerWeapon@ pPlayer_satchel = pPlayer.HasNamedPlayerItem("weapon_satchel").GetWeaponPtr();
+    ammoindex = pPlayer_satchel.PrimaryAmmoIndex();
+    ammo = pPlayer.AmmoInventory(ammoindex);
+    if (ammo>0)
+       magnitude += int(ammo*15);
+
+} 
+
+// Count tripmines
+if (pPlayer.HasNamedPlayerItem("weapon_tripmine") !is null)
+{
+    CBasePlayerWeapon@ pPlayer_tripmine = pPlayer.HasNamedPlayerItem("weapon_tripmine").GetWeaponPtr();
+    ammoindex = pPlayer_tripmine.PrimaryAmmoIndex();
+    ammo = pPlayer.AmmoInventory(ammoindex);
+    if (ammo>0)
+       magnitude += int(ammo*15);
+} 
+
+// Count RPG missiles
+if (pPlayer.HasNamedPlayerItem("weapon_rpg") !is null)
+{
+    CBasePlayerWeapon@ pPlayer_rpg = pPlayer.HasNamedPlayerItem("weapon_rpg").GetWeaponPtr();
+    ammoindex = pPlayer_rpg.PrimaryAmmoIndex();
+    ammo = pPlayer.AmmoInventory(ammoindex);
+    if (pPlayer_rpg.m_iClip > 0)
+       ammo += pPlayer_rpg.m_iClip;
+    if (ammo>0)
+       magnitude += int(ammo*10);
+
+} 
+
+// Count m16 grenades
+if (pPlayer.HasNamedPlayerItem("weapon_m16") !is null)
+{
+    CBasePlayerWeapon@ pPlayer_m16 = pPlayer.HasNamedPlayerItem("weapon_m16").GetWeaponPtr();
+    ammoindex = pPlayer_m16.SecondaryAmmoIndex();
+    ammo = pPlayer.AmmoInventory(ammoindex);
+    if (pPlayer_m16.m_iClip2 > 0)
+       ammo += pPlayer_m16.m_iClip2;
+    if (ammo>0)
+       magnitude += int(ammo*10);
+} 
+
+// Count mp5 grenades
+if (pPlayer.HasNamedPlayerItem("weapon_mp5") !is null)
+{
+    CBasePlayerWeapon@ pPlayer_mp5 = pPlayer.HasNamedPlayerItem("weapon_mp5").GetWeaponPtr();
+    ammoindex = pPlayer_mp5.SecondaryAmmoIndex();
+    ammo = pPlayer.AmmoInventory(ammoindex);
+    if (pPlayer_mp5.m_iClip2 > 0)
+       ammo += pPlayer_mp5.m_iClip2;
+    if (ammo>0)
+       magnitude += int(ammo*10);
+} 
+
+// Count crossbow bolts
+if (pPlayer.HasNamedPlayerItem("weapon_crossbow") !is null)
+{
+    CBasePlayerWeapon@ pPlayer_crossbow = pPlayer.HasNamedPlayerItem("weapon_crossbow").GetWeaponPtr();
+    ammoindex = pPlayer_crossbow.PrimaryAmmoIndex();
+    ammo = pPlayer.AmmoInventory(ammoindex);
+    if (pPlayer_crossbow.m_iClip > 0)
+       ammo += pPlayer_crossbow.m_iClip;
+    if (ammo>0)
+       magnitude += int(ammo*2);
+} 
+
+g_PlayerFuncs.ClientPrintAll(HUD_PRINTTALK, string(magnitude) + "\n");
+
+gib_player(pPlayer);
+
+float t_delay = 0.0f;
+if (magnitude>0)
+{
+    if (damage_players)
+       g_EntityFuncs.CreateExplosion(pPlayer.GetOrigin(),Vector(0,0,0),g_EntityFuncs.IndexEnt(0),magnitude,true);
+    else
+       g_EntityFuncs.CreateExplosion(pPlayer.GetOrigin(),Vector(0,0,0),pPlayer.edict(),magnitude,true);
+
+    // Add additional explosions to make it EPIC!!!!! XD
+    int temp_magnitude;
+    while (magnitude>0)
+    {
+       t_delay += Math.RandomFloat(0.1f,0.75f);
+       temp_magnitude = Math.RandomLong(10,100);
+       g_Scheduler.SetTimeout("create_explosion",t_delay,@pPlayer,temp_magnitude); 
+       magnitude -= temp_magnitude;
+    }
+    
+}
+
+// Make sure player can't respawn until all explosions are done
+if (pPlayer.m_flRespawnDelayTime <= t_delay)
+   pPlayer.m_flRespawnDelayTime += (1.0f+t_delay-pPlayer.m_flRespawnDelayTime);
+
+}
+
+
+void create_explosion(CBasePlayer@ pPlayer,int magnitude=100)
+{
+g_EntityFuncs.CreateExplosion(pPlayer.GetOrigin(),Vector(0,0,0),pPlayer.edict(),magnitude,true);
+}
+
+
 
 void weapon_swap(CBasePlayer@ pPlayer, CBasePlayerWeapon@ pPlayer_crowbar)
 {

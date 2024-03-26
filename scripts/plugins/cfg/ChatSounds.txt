@@ -80,3 +80,4 @@ alone chat/up9/alone.wav
 pussy chat/up7/pussy.wav
 imded chat/up/imded.wav
 bug chat/bugs.wav
+wtfboom chat/wtf.wav
