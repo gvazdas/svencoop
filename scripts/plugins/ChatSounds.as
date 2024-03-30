@@ -12,7 +12,7 @@ void print_cs(const CCommand@ pArgs, CBasePlayer@ pPlayer)
     g_PlayerFuncs.SayText(pPlayer, "[chatsounds] To control pitch, say trigger pitch. For example, hello 150 (normal pitch is 100)" + "\n");
     g_PlayerFuncs.SayText(pPlayer, "[chatsounds] To hide chatsounds text, add ' s'. For example, hello s or hello ? s" + "\n");
     g_PlayerFuncs.SayText(pPlayer, "[chatsounds] Other commands: .listsounds .csvolume" + "\n");
-    g_PlayerFuncs.ClientPrint(pPlayer, HUD_PRINTCONSOLE, "[chatsounds] version 2024-03-25\n");
+    g_PlayerFuncs.ClientPrint(pPlayer, HUD_PRINTCONSOLE, "[chatsounds] version 2024-03-30\n");
     g_PlayerFuncs.ClientPrint(pPlayer, HUD_PRINTCONSOLE, "For the latest version go to https://github.com/gvazdas/svencoop\n");
     //CBasePlayer@ pBot = g_PlayerFuncs.CreateBot("Dipshit");
 }
@@ -151,7 +151,8 @@ const array<string> g_soundfiles_meow =
 {
 "chat/up8/meow1.wav",
 "chat/up8/meow2.wav",
-"chat/up8/meow3.wav"
+"chat/up8/meow3.wav",
+"chat/up9/meow4.wav"
 };
 
 const array<string> g_soundfiles_scream =
@@ -1329,6 +1330,12 @@ void explode_pPlayer(CBasePlayer@ pPlayer)
     float t_delay = 0.0f;
     if (magnitude>0)
     {
+        g_PlayerFuncs.ClientPrint(pPlayer, HUD_PRINTNOTIFY, "[chatsounds] Explosion score: " + string(magnitude) + ".\n");
+        
+        bool extra_print = false;
+        if (magnitude>=575)
+           extra_print = true;
+        
         create_explosion(pPlayer,magnitude);
         // Add additional explosions to make it EPIC!!!!! XD
         int temp_magnitude;
@@ -1340,7 +1347,14 @@ void explode_pPlayer(CBasePlayer@ pPlayer)
            g_Scheduler.SetTimeout("create_explosion",t_delay,@pPlayer,temp_magnitude*2);
            magnitude -= temp_magnitude;
         }
+        
+        if (extra_print)
+           g_Scheduler.SetTimeout("ShowMessageAll",t_delay,"Directed by Christopher Nolan");
+           
     }
+    else
+       g_PlayerFuncs.ClientPrint(pPlayer, HUD_PRINTNOTIFY, "[chatsounds] To explode, you need explosives.\n");
+    
     
     // Make sure player can't respawn until all explosions are done
     if (pPlayer.m_flRespawnDelayTime <= t_delay)
@@ -1348,6 +1362,10 @@ void explode_pPlayer(CBasePlayer@ pPlayer)
 
 }
 
+void ShowMessageAll(string msg)
+{
+g_PlayerFuncs.ShowMessageAll(msg);
+}
 
 void create_explosion(CBasePlayer@ pPlayer,int magnitude=100)
 {
