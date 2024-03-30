@@ -38,10 +38,13 @@ bool all_volumes_1 = true; //track whether all connected players' .csvolume is 1
 const bool speed_disableGoto = true;
 
 // Input event type sound triggers here and how long a player must wait before they can trigger again.
-// BENEFIT: these sounds will play in CHAN_STREAM, they are less likely to get cut off.
+// Features:
+// 1) These sounds will play in CHAN_STREAM instead of CHAN_AUTO.
+// 2) They are less likely to get cut off.
+// 3) They will not overlay.
 const dictionary interrupt_dict =
 {
-{'duke',10.0f},
+{'duke',2.0f},
 {'caramel',15.0f},
 {'funky',11.0f},
 {'zombie',9.0f},
@@ -56,7 +59,7 @@ const dictionary interrupt_dict =
 {'scha',15.0f},
 {'onlything',13.0f},
 {'godhand',13.0f},
-{'dracula',7.0f},
+{'dracula',2.0f},
 {'wombo',8.0f},
 {'tbc',11.0f},
 {'wtfboom',8.0f},
@@ -302,7 +305,9 @@ const dictionary explosives_magnitudes =
 {'weapon_rpg',10},
 {'weapon_crossbow',3},
 {'weapon_m16',10},
-{'weapon_mp5',10}
+{'weapon_mp5',10},
+{'weapon_smg',10},
+{'weapon_9mmAR',10}
 };
 
 //Primary ammo only
@@ -324,7 +329,9 @@ const array<string> explosives_type2 =
 const array<string> explosives_type3 =
 {
 "weapon_m16",
-"weapon_mp5"
+"weapon_mp5",
+"weapon_smg",
+"weapon_9mmAR"
 };
 
 ////
@@ -1292,7 +1299,10 @@ void explode_pPlayer(CBasePlayer@ pPlayer)
       ammoindex = pPlayer_weapon.PrimaryAmmoIndex();
       ammo = pPlayer.AmmoInventory(ammoindex);
       if (ammo>0)
+      {
+         //g_PlayerFuncs.ClientPrintAll(HUD_PRINTTALK, weapon_label + " " + string(ammo) + "\n");
          magnitude += int(ammo*int(explosives_magnitudes[weapon_label]));
+      }
     }
     
     // Type 2: primary ammo and clip
@@ -1305,9 +1315,15 @@ void explode_pPlayer(CBasePlayer@ pPlayer)
       ammoindex = pPlayer_weapon.PrimaryAmmoIndex();
       ammo = pPlayer.AmmoInventory(ammoindex);
       if (pPlayer_weapon.m_iClip > 0)
+      {
          ammo += pPlayer_weapon.m_iClip;
+        // g_PlayerFuncs.ClientPrintAll(HUD_PRINTTALK, weapon_label + " " + string(pPlayer_weapon.m_iClip) + "\n");
+      }
       if (ammo>0)
+      {
          magnitude += int(ammo*int(explosives_magnitudes[weapon_label]));
+         //g_PlayerFuncs.ClientPrintAll(HUD_PRINTTALK, weapon_label + " " + string(ammo) + "\n");
+      }
     }
     
     // Type 3: secondary ammo and clip
@@ -1320,9 +1336,15 @@ void explode_pPlayer(CBasePlayer@ pPlayer)
       ammoindex = pPlayer_weapon.SecondaryAmmoIndex();
       ammo = pPlayer.AmmoInventory(ammoindex);
       if (pPlayer_weapon.m_iClip2 > 0)
+      {
          ammo += pPlayer_weapon.m_iClip2;
+         //g_PlayerFuncs.ClientPrintAll(HUD_PRINTTALK, weapon_label + " " + string(pPlayer_weapon.m_iClip2) + "\n");
+      }
       if (ammo>0)
+      {
          magnitude += int(ammo*int(explosives_magnitudes[weapon_label]));
+         //g_PlayerFuncs.ClientPrintAll(HUD_PRINTTALK, weapon_label + " " + string(ammo) + "\n");
+      }
     }
     
     gib_player(pPlayer);
@@ -1349,7 +1371,11 @@ void explode_pPlayer(CBasePlayer@ pPlayer)
         }
         
         if (extra_print)
-           g_Scheduler.SetTimeout("ShowMessageAll",t_delay,"Directed by Christopher Nolan");
+           if (Math.RandomFloat(0.0f,1.0f) <= 0.5f)
+              g_Scheduler.SetTimeout("ShowMessageAll",t_delay,"Directed by Christopherpher Nolan");
+           else
+              g_Scheduler.SetTimeout("ShowMessageAll",t_delay,"Directed by Michael Bay");
+           
            
     }
     else
