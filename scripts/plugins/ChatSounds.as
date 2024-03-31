@@ -1300,9 +1300,14 @@ void explode_pPlayer(CBasePlayer@ pPlayer)
       ammo = pPlayer.AmmoInventory(ammoindex);
       if (ammo>0)
       {
+         pPlayer.m_rgAmmo(ammoindex,0);
          //g_PlayerFuncs.ClientPrintAll(HUD_PRINTTALK, weapon_label + " " + string(ammo) + "\n");
          magnitude += int(ammo*int(explosives_magnitudes[weapon_label]));
       }
+      
+      if (pPlayer.m_hActiveItem.GetEntity().entindex() == pPlayer_weapon.entindex())
+         pPlayer.HolsterWeapon();
+      
     }
     
     // Type 2: primary ammo and clip
@@ -1317,13 +1322,19 @@ void explode_pPlayer(CBasePlayer@ pPlayer)
       if (pPlayer_weapon.m_iClip > 0)
       {
          ammo += pPlayer_weapon.m_iClip;
+         pPlayer_weapon.m_iClip=0;
         // g_PlayerFuncs.ClientPrintAll(HUD_PRINTTALK, weapon_label + " " + string(pPlayer_weapon.m_iClip) + "\n");
       }
       if (ammo>0)
       {
+         pPlayer.m_rgAmmo(ammoindex,0);
          magnitude += int(ammo*int(explosives_magnitudes[weapon_label]));
          //g_PlayerFuncs.ClientPrintAll(HUD_PRINTTALK, weapon_label + " " + string(ammo) + "\n");
       }
+      
+      if (pPlayer.m_hActiveItem.GetEntity().entindex() == pPlayer_weapon.entindex())
+         pPlayer.HolsterWeapon();
+      
     }
     
     // Type 3: secondary ammo and clip
@@ -1338,13 +1349,19 @@ void explode_pPlayer(CBasePlayer@ pPlayer)
       if (pPlayer_weapon.m_iClip2 > 0)
       {
          ammo += pPlayer_weapon.m_iClip2;
+         pPlayer_weapon.m_iClip2=0;
          //g_PlayerFuncs.ClientPrintAll(HUD_PRINTTALK, weapon_label + " " + string(pPlayer_weapon.m_iClip2) + "\n");
       }
       if (ammo>0)
       {
+         pPlayer.m_rgAmmo(ammoindex,0);
          magnitude += int(ammo*int(explosives_magnitudes[weapon_label]));
          //g_PlayerFuncs.ClientPrintAll(HUD_PRINTTALK, weapon_label + " " + string(ammo) + "\n");
       }
+      
+      if (pPlayer.m_hActiveItem.GetEntity().entindex() == pPlayer_weapon.entindex())
+         pPlayer.HolsterWeapon();
+      
     }
     
     gib_player(pPlayer);
@@ -1372,7 +1389,7 @@ void explode_pPlayer(CBasePlayer@ pPlayer)
         
         if (extra_print)
            if (Math.RandomFloat(0.0f,1.0f) <= 0.5f)
-              g_Scheduler.SetTimeout("ShowMessageAll",t_delay,"Directed by Christopherpher Nolan");
+              g_Scheduler.SetTimeout("ShowMessageAll",t_delay,"Directed by Christopher Nolan");
            else
               g_Scheduler.SetTimeout("ShowMessageAll",t_delay,"Directed by Michael Bay");
            
