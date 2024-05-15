@@ -12,7 +12,7 @@ void print_cs(const CCommand@ pArgs, CBasePlayer@ pPlayer)
     g_PlayerFuncs.SayText(pPlayer, "[chatsounds] To control pitch, say trigger pitch. For example, hello 150 (normal pitch is 100)" + "\n");
     g_PlayerFuncs.SayText(pPlayer, "[chatsounds] To hide chatsounds text, add ' s'. For example, hello s or hello ? s" + "\n");
     g_PlayerFuncs.SayText(pPlayer, "[chatsounds] Other commands: .listsounds .csvolume" + "\n");
-    g_PlayerFuncs.ClientPrint(pPlayer, HUD_PRINTCONSOLE, "[chatsounds] version 2024-03-30\n");
+    g_PlayerFuncs.ClientPrint(pPlayer, HUD_PRINTCONSOLE, "[chatsounds] version 2024-05-15\n");
     g_PlayerFuncs.ClientPrint(pPlayer, HUD_PRINTCONSOLE, "For the latest version go to https://github.com/gvazdas/svencoop\n");
     //CBasePlayer@ pBot = g_PlayerFuncs.CreateBot("Dipshit");
 }
@@ -110,6 +110,18 @@ const array<string> g_soundfiles_duke =
 "chat/up7/duke13.wav",
 "chat/up7/duke14.wav",
 "chat/up7/duke15.wav"
+};
+
+const array<string> g_soundfiles_thinking =
+{
+"chat/thinking.wav",
+"chat/up10/thinking2.wav",
+"chat/up10/thinking3.wav",
+"chat/up10/thinking4.wav",
+"chat/up10/thinking5.wav",
+"chat/up10/thinking6.wav",
+"chat/up10/thinking7.wav",
+"chat/up10/thinking8.wav"
 };
 
 const array<string> g_soundfiles_ppk =
@@ -336,6 +348,35 @@ const array<string> explosives_type3 =
 
 ////
 
+// Revolver Ocelot reloading meme
+
+float probability_reload = 0.15f; //must be between 0.0f and 1.0f
+float reload_wait = 10.0f;
+
+array<bool> array_reload(g_Engine.maxClients, false);
+
+void set_pPlayer_reload(CBasePlayer@ pPlayer,bool state=true)
+{
+    if (pPlayer.IsConnected() and pPlayer !is null)
+       array_reload[pPlayer.entindex()-1] = state;
+} 
+
+const array<string> g_soundfiles_reload =
+{
+"chat/up10/reload1.wav",
+"chat/up10/reload2.wav",
+"chat/up10/reload4.wav",
+"chat/up10/reload5.wav"
+};
+
+const array<string> g_soundfiles_reload_revolver =
+{
+"chat/up10/reload3.wav",
+"chat/up10/reload_revolver.wav"
+};
+
+////
+
 CClientCommand g_cs("cs", "List all chatsounds console commands", @cs_command);
 CClientCommand g_ListSounds("listsounds", "List all chat sounds", @listsounds_command);
 CClientCommand g_CSVolume("csvolume", "Set volume (0-1) for all chat sounds", @csvolume_command);
@@ -453,6 +494,7 @@ void ReadSounds()
     g_SoundListKeys.insertLast("zombiegoasts");
     g_SoundListKeys.insertLast("scream");
     g_SoundListKeys.insertLast("dental");
+    g_SoundListKeys.insertLast("thinking");
     
     g_SoundListKeys.sortAsc();
   }
@@ -469,6 +511,7 @@ void PluginInit()
   g_Hooks.RegisterHook(Hooks::Game::MapChange, @MapChange);
   g_Hooks.RegisterHook(Hooks::Player::PlayerSpawn, @PlayerSpawn);
   g_Hooks.RegisterHook(Hooks::Player::PlayerKilled, @PlayerKilled);
+  g_Hooks.RegisterHook(Hooks::Player::PlayerPostThink, @PlayerPostThink);
 
   ReadSounds();
   
@@ -498,6 +541,9 @@ void MapInit()
   preacache_sound_array(g_soundfiles_scream);
   preacache_sound_array(g_soundfiles_desperate);
   preacache_sound_array(g_soundfiles_dental);
+  preacache_sound_array(g_soundfiles_reload);
+  preacache_sound_array(g_soundfiles_reload_revolver);
+  preacache_sound_array(g_soundfiles_thinking);
   
   g_Game.PrecacheGeneric("sound/" + g_soundfile_secret);
   g_SoundSystem.PrecacheSound(g_soundfile_secret);
@@ -510,6 +556,7 @@ void MapInit()
   
   array_imded = array<bool>(g_Engine.maxClients, false);
   array_event = array<bool>(g_Engine.maxClients, false);
+  array_reload = array<bool>(g_Engine.maxClients, false);
   nishiki_fail = array<bool>(g_Engine.maxClients, false);
   arr_ChatTimes = array<float>(g_Engine.maxClients, 0.0f);
   
@@ -847,7 +894,9 @@ HookReturnCode ClientSay(SayParameters@ pParams)
             else if (soundArg=="zombiegoasts")
                snd_file = g_soundfiles_zombiegoasts[uint(Math.RandomLong(0,g_soundfiles_zombiegoasts.length()-1))];
             else if (soundArg=="scream")
-               snd_file = g_soundfiles_scream[uint(Math.RandomLong(0,g_soundfiles_scream.length()-1))];   
+               snd_file = g_soundfiles_scream[uint(Math.RandomLong(0,g_soundfiles_scream.length()-1))];
+            else if (soundArg=="thinking")
+               snd_file = g_soundfiles_thinking[uint(Math.RandomLong(0,g_soundfiles_thinking.length()-1))];
             else
                snd_file = string(g_SoundList[soundArg]);
                
@@ -1455,6 +1504,47 @@ void crowbar_end(CBasePlayer@ pPlayer, CBasePlayerWeapon@ pPlayer_crowbar)
    }
 }
 
+HookReturnCode PlayerPostThink(CBasePlayer@ pPlayer)
+{
+  if ( pPlayer.IsAlive() and probability_reload>0.0f )
+  {
+
+     CBasePlayerWeapon@ pPlayer_weapon = cast<CBasePlayerWeapon@>(pPlayer.m_hActiveItem.GetEntity());
+     if (pPlayer_weapon is null or array_reload[pPlayer.entindex()-1])
+        return HOOK_CONTINUE;
+     
+     
+     if (pPlayer_weapon.m_fInReload)
+     {
+        
+        if (Math.RandomFloat(0.0f,1.0f)<probability_reload)
+        {
+            
+            CBasePlayerWeapon@ pPlayer_revolver;
+  	        if (pPlayer.HasNamedPlayerItem("weapon_357") !is null)
+      	        @pPlayer_revolver = pPlayer.HasNamedPlayerItem("weapon_357").GetWeaponPtr();
+            else if (pPlayer.HasNamedPlayerItem("weapon_python") !is null)
+               @pPlayer_revolver = pPlayer.HasNamedPlayerItem("weapon_python").GetWeaponPtr();
+            
+            string snd_file;
+            if ( pPlayer_revolver !is null and pPlayer_revolver.entindex()==pPlayer_weapon.entindex() )
+                snd_file = g_soundfiles_reload_revolver[uint(Math.RandomLong(0,g_soundfiles_reload_revolver.length()-1))];
+            else
+                snd_file = g_soundfiles_reload[uint(Math.RandomLong(0,g_soundfiles_reload.length()-1))];
+
+            play_sound(pPlayer,CHAN_STREAM,snd_file,1.0f,0.3f,100,true);
+            pPlayer.ShowOverheadSprite(g_SpriteName, 56.0f, 2.25f);
+
+        }
+     
+        set_pPlayer_reload(pPlayer,true);
+        g_Scheduler.SetTimeout("set_pPlayer_reload",reload_wait,@pPlayer,false);
+     }
+
+  }
+  return HOOK_CONTINUE;
+}
+
 HookReturnCode ClientDisconnect(CBasePlayer@ pPlayer)
 {
    
@@ -1623,6 +1713,7 @@ HookReturnCode ClientPutInServer(CBasePlayer@ pPlayer)
      clients_ignorespeed[pPlayer_index]=true;
   }
   array_imded[pPlayer_index] = false;
+  array_reload[pPlayer_index] = false;
   pPlayer_setscale(pPlayer);
   return HOOK_CONTINUE;
 }
@@ -1633,7 +1724,7 @@ HookReturnCode PlayerSpawn(CBasePlayer@ pPlayer)
      clients_ignorespeed[pPlayer.entindex()-1]=true;
   
   if (pPlayer.HasNamedPlayerItem("weapon_9mmhandgun") !is null or pPlayer.HasNamedPlayerItem("weapon_glock") !is null)
-      play_sound(pPlayer,CHAN_AUTO,g_soundfiles_ppk[uint(Math.RandomLong(0,g_soundfiles_ppk.length()-1))],1.0f,0.3f,100,true);
+      play_sound(pPlayer,CHAN_AUTO,g_soundfiles_ppk[uint(Math.RandomLong(0,g_soundfiles_ppk.length()-1))],1.0f,0.7f,100,true);
   
   array_imded[pPlayer.entindex()-1]=false;
   
