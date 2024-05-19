@@ -81,3 +81,10 @@ pussy chat/up7/pussy.wav
 imded chat/up/imded.wav
 bug chat/bugs.wav
 wtfboom chat/wtf.wav
+
+rhetorical chat/payne/rhetorical.wav
+killingme chat/payne/killingme.wav
+maxpaynis chat/payne/maxpaynis.wav
+mrbeast chat/payne/mrbeast.wav
+maxpills chat/payne/pills.wav
+paynebutt chat/payne/paynebutt.wav
