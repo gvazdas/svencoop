@@ -13,7 +13,7 @@ void print_cs(const CCommand@ pArgs, CBasePlayer@ pPlayer)
     g_PlayerFuncs.SayText(pPlayer, "[chatsounds] To hide chatsounds text, add ' s'. For example, hello s or hello ? s" + "\n");
     g_PlayerFuncs.SayText(pPlayer, "[chatsounds] Full syntax: trigger pitch s delay" + "\n");
     g_PlayerFuncs.SayText(pPlayer, "[chatsounds] Other commands: .listsounds .csvolume" + "\n");
-    g_PlayerFuncs.ClientPrint(pPlayer, HUD_PRINTCONSOLE, "[chatsounds] version 2024-05-18\n");
+    g_PlayerFuncs.ClientPrint(pPlayer, HUD_PRINTCONSOLE, "[chatsounds] version 2024-05-19\n");
     g_PlayerFuncs.ClientPrint(pPlayer, HUD_PRINTCONSOLE, "For the latest version go to https://github.com/gvazdas/svencoop\n");
     //CBasePlayer@ pBot = g_PlayerFuncs.CreateBot("Dipshit");
 }
@@ -44,6 +44,7 @@ const bool speed_disableGoto = true;
 // 3) They will not overlay.
 const dictionary interrupt_dict =
 {
+{'petition',1.0f},
 {'payne',1.0f},
 {'duke',1.0f},
 {'thinking',1.0f},
@@ -203,6 +204,45 @@ const array<string> g_soundfiles_dracula =
 "chat/up7/dracula5.wav",
 "chat/up7/dracula6.wav"
 };
+
+/////
+
+// Postal petition meme
+
+// both arrays must be of equal length
+const array<string> g_soundfiles_petition1 =
+{
+"chat/dude/pet1a.wav",
+"chat/dude/pet2a.wav",
+"chat/dude/pet3a.wav"
+};
+
+const array<string> g_soundfiles_petition2 =
+{
+"chat/dude/pet1b.wav",
+"chat/dude/pet2b.wav",
+"chat/dude/pet3b.wav"
+};
+
+uint i_petition = 0;
+
+string get_petition_snd_file()
+{
+     
+   string snd_file;
+   if (Math.RandomLong(0,1)<=0)
+      snd_file = g_soundfiles_petition1[i_petition];
+   else
+      snd_file = g_soundfiles_petition2[i_petition];
+   
+   if (i_petition>=g_soundfiles_petition1.length()-1)
+      i_petition = 0;
+   else
+      i_petition += 1;
+   
+   return snd_file;
+   
+}
 
 /////
 
@@ -570,6 +610,7 @@ void PluginInit()
   g_SoundListKeys.insertLast("dental");
   g_SoundListKeys.insertLast("thinking");
   g_SoundListKeys.insertLast("payne");
+  g_SoundListKeys.insertLast("petition");
   
   g_SoundListKeys.sortAsc();
   
@@ -608,6 +649,8 @@ void MapInit()
   preacache_sound_array(g_soundfiles_reload_revolver);
   preacache_sound_array(g_soundfiles_thinking);
   preacache_sound_array(g_soundfiles_payne);
+  preacache_sound_array(g_soundfiles_petition1);
+  preacache_sound_array(g_soundfiles_petition2);
   
   // preache hidden sound triggers here
   preacache_sound(g_soundfile_secret);
@@ -622,6 +665,8 @@ void MapInit()
   array_reload = array<bool>(g_Engine.maxClients, false);
   nishiki_fail = array<bool>(g_Engine.maxClients, false);
   arr_ChatTimes = array<float>(g_Engine.maxClients, 0.0f);
+  
+  i_petition=0;
   
   all_volumes_1=true;
   race_happening = false;
@@ -908,7 +953,7 @@ HookReturnCode ClientSay(SayParameters@ pParams)
                          if (t_delay<0.0f or t_delay>10.0f)
                          {
                             t_delay = 0.0f;
-                            g_PlayerFuncs.ClientPrint(pPlayer, HUD_PRINTCENTER, "chatsounds delay must be between 0 and 10 seconds\n");
+                            g_PlayerFuncs.ClientPrint(pPlayer, HUD_PRINTCENTER, "chatsounds delay must be between 0 and 10 s\n");
                          }
                          
                       }
@@ -978,6 +1023,8 @@ HookReturnCode ClientSay(SayParameters@ pParams)
                snd_file = g_soundfiles_thinking[uint(Math.RandomLong(0,g_soundfiles_thinking.length()-1))];
             else if (soundArg=="payne")
                snd_file = g_soundfiles_payne[uint(Math.RandomLong(0,g_soundfiles_payne.length()-1))];
+            else if (soundArg=="petition")
+               snd_file = get_petition_snd_file();
             else
                snd_file = string(g_SoundList[soundArg]);
                

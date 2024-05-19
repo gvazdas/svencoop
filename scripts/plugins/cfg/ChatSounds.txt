@@ -82,6 +82,15 @@ imded chat/up/imded.wav
 bug chat/bugs.wav
 wtfboom chat/wtf.wav
 
+buttsauce chat/dude/butts.wav
+fuck! chat/dude/fuck.wav
+fucku chat/dude/fucku.wav
+shit2 chat/dude/shit.wav
+healthpipe chat/dude/good4me.wav
+kidding chat/dude/kidding.wav
+thx chat/dude/thx.wav
+yes! chat/dude/yes.wav
+
 rhetorical chat/payne/rhetorical.wav
 killingme chat/payne/killingme.wav
 maxpaynis chat/payne/maxpaynis.wav
