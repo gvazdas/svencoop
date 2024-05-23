@@ -13,7 +13,7 @@ void print_cs(const CCommand@ pArgs, CBasePlayer@ pPlayer)
     g_PlayerFuncs.SayText(pPlayer, "[chatsounds] To hide chatsounds text, add ' s'. For example, hello s or hello ? s" + "\n");
     g_PlayerFuncs.SayText(pPlayer, "[chatsounds] Full syntax: trigger pitch s delay" + "\n");
     g_PlayerFuncs.SayText(pPlayer, "[chatsounds] Other commands: .listsounds .csvolume" + "\n");
-    g_PlayerFuncs.ClientPrint(pPlayer, HUD_PRINTCONSOLE, "[chatsounds] version 2024-05-19\n");
+    g_PlayerFuncs.ClientPrint(pPlayer, HUD_PRINTCONSOLE, "[chatsounds] version 2024-05-23\n");
     g_PlayerFuncs.ClientPrint(pPlayer, HUD_PRINTCONSOLE, "For the latest version go to https://github.com/gvazdas/svencoop\n");
     //CBasePlayer@ pBot = g_PlayerFuncs.CreateBot("Dipshit");
 }
@@ -31,17 +31,17 @@ const float g_Delay = 0.1f; //minimum time in seconds between chat sounds for th
 array<float> arr_ChatTimes(g_Engine.maxClients, 0.0f); //track chat times of players
 
 array<float> arr_volumes(g_Engine.maxClients, 1.0f);
-bool all_volumes_1 = true; //track whether all connected players volume is 1
+bool all_volumes_1 = true; //optimization; tracking whether all connected players volume is 1 for sound playback purposes
 
 // disables Goto script functionality during race if desired
 // set to false if Goto.as is not being used.
 const bool speed_disableGoto = true;
 
-// Input event type sound triggers here and how long a player must wait before they can trigger again.
+// Specify "event type" sound triggers here and how long a player must wait before they can trigger again.
 // Features:
 // 1) These sounds will play in CHAN_STREAM instead of CHAN_AUTO.
 // 2) They are less likely to get cut off.
-// 3) They will not overlay.
+// 3) They cannot overlap.
 const dictionary interrupt_dict =
 {
 {'petition',1.0f},
@@ -89,13 +89,14 @@ void pPlayer_event(CBasePlayer@ pPlayer,bool state=true)
        array_event[pPlayer.entindex()-1] = state;
 } 
 
-//nishiki timing game
-bool nishiki = false;
-bool nishiki_timing = false;
-bool nishiki_stage = false;
-array<bool> nishiki_fail(g_Engine.maxClients, false);
-int nishiki_pitch;
+// "nishiki", timing game
+bool nishiki = false; //sound is playing
+bool nishiki_timing = false; //timing for healing
+bool nishiki_stage = false; //tracking whether timing is too early or too late
+array<bool> nishiki_fail(g_Engine.maxClients, false); //tracking if player has already failed timing game
+int nishiki_pitch; //tracking pitch of nishiki sound
 
+// "duke" Duke Nukem memes
 const array<string> g_soundfiles_duke =
 {
 "chat/up7/duke1.wav",
@@ -115,6 +116,7 @@ const array<string> g_soundfiles_duke =
 "chat/up7/duke15.wav"
 };
 
+// "thinking" AVGN meme
 const array<string> g_soundfiles_thinking =
 {
 "chat/thinking.wav",
@@ -127,6 +129,7 @@ const array<string> g_soundfiles_thinking =
 "chat/up10/thinking8.wav"
 };
 
+// Spawn sounds
 const array<string> g_soundfiles_ppk =
 {
 "chat/up3/ppk.wav",
@@ -135,12 +138,14 @@ const array<string> g_soundfiles_ppk =
 "chat/up9/ppk3.wav"
 };
 
+//"zombiegoasts"
 const array<string> g_soundfiles_zombiegoasts =
 {
 "chat/up9/zombiegoasts1.wav",
 "chat/up9/zombiegoasts2.wav"
 };
 
+// "funky"
 const array<string> g_soundfiles_funky =
 {
 "chat/up9/funky1.wav",
@@ -148,23 +153,27 @@ const array<string> g_soundfiles_funky =
 "chat/up9/funky3.wav"
 };
 
-bool desperate; //deus ex meme
+// "desperate" Deus Ex meme (alternating)
+bool desperate; //tracking which sound should play next
 const array<string> g_soundfiles_desperate =
 {
 "chat/up7/desperate1.wav",
 "chat/up7/desperate2.wav"
 };
 
-bool dental; //simpsons meme
+// "dental" Simpsons dental plan meme
+bool dental; //tracking which sound should play next
 const array<string> g_soundfiles_dental =
 {
 "chat/up9/dental1.wav",
 "chat/up9/dental2.wav"
 };
 
-const string g_soundfile_secret = "chat/up8/Secret.wav";
-const string g_soundfile_zombie_autotune = "chat/up9/zombie_autotune.wav";
+// Secret sounds not listed in .listsounds
+const string g_soundfile_secret = "chat/up8/Secret.wav"; // "secret"
+const string g_soundfile_zombie_autotune = "chat/up9/zombie_autotune.wav"; // if player is zombie.mdl
 
+// "meow"
 const array<string> g_soundfiles_meow =
 {
 "chat/up8/meow1.wav",
@@ -173,6 +182,7 @@ const array<string> g_soundfiles_meow =
 "chat/up9/meow4.wav"
 };
 
+// "scream"
 const array<string> g_soundfiles_scream =
 {
 "chat/scientist/scream1.wav",
@@ -195,6 +205,7 @@ const array<string> g_soundfiles_scream =
 //"chat/scientist/sneeze.wav"
 };
 
+// "dracula"
 const array<string> g_soundfiles_dracula =
 {
 "chat/up7/dracula1.wav",
@@ -207,16 +218,17 @@ const array<string> g_soundfiles_dracula =
 
 /////
 
-// Postal petition meme
+// "petition" Postal petition meme
 
-// both arrays must be of equal length
+// Variation 1
 const array<string> g_soundfiles_petition1 =
 {
-"chat/dude/pet1a.wav",
+"chat/dude/pet1a.wav", 
 "chat/dude/pet2a.wav",
 "chat/dude/pet3a.wav"
 };
 
+// Variation 2
 const array<string> g_soundfiles_petition2 =
 {
 "chat/dude/pet1b.wav",
@@ -224,17 +236,18 @@ const array<string> g_soundfiles_petition2 =
 "chat/dude/pet3b.wav"
 };
 
-uint i_petition = 0;
+uint i_petition = 0; //tracking which stage (0,1,2) we are in
 
 string get_petition_snd_file()
 {
      
-   string snd_file;
+   string snd_file; //pick variation
    if (Math.RandomLong(0,1)<=0)
       snd_file = g_soundfiles_petition1[i_petition];
    else
       snd_file = g_soundfiles_petition2[i_petition];
    
+   // go to next stage or reset
    if (i_petition>=g_soundfiles_petition1.length()-1)
       i_petition = 0;
    else
@@ -246,8 +259,8 @@ string get_petition_snd_file()
 
 /////
 
-// Max Payne memes
-bool payne_music = false;
+// "payne" Max Payne memes
+bool payne_music = false; //tracking if music is playing
 float payne_music_duration = 15.0f;
 const string g_soundfile_payne_music = "chat/payne/payne_music.wav";
 
@@ -288,7 +301,7 @@ void end_payne_music()
 
 /////
 
-// Race stuff
+// "speed" racing between players mini game
 
 //All of these must have 5 seconds of intro padding before race start, and be 19.3 secs in total length.
 const array<string> g_soundfiles_speed =
@@ -317,13 +330,13 @@ void reset_speed_shuffle()
 const float race_updatetime = 0.05f; //higher number will result in less hitching.
 const float race_maxspeed = 5000.0f; //if speed is higher than this, ignore it
 bool race_happening = false;
-array<Vector> arr_race_origins;
-array<float> arr_race_distances;
-array<bool> clients_ignorespeed(g_Engine.maxClients, false);
+array<Vector> arr_race_origins; //tracking all player locations
+array<float> arr_race_distances; //tracking how much players have moved during the race
+array<bool> clients_ignorespeed(g_Engine.maxClients, false); //for tracking if player has illegal speed
 
 ////
 
-// Caramelldansen stuff
+// "caramel" Caramelldansen with alternating glow colors for players
 
 //red
 const array<Vector> g_caramel_colors_group1 =
@@ -389,7 +402,7 @@ const dictionary g_caramel_all_groups =
 
 ////
 
-// wtfboom stuff
+// "wtfboom" player suicide explosion mini-game
 
 //explosion points for one count of ammo
 const dictionary explosives_magnitudes =
@@ -433,10 +446,10 @@ const array<string> explosives_type3 =
 
 // Revolver Ocelot reloading meme
 
-float probability_reload = 0.1f; //must be between 0.0f and 1.0f
-float reload_wait = 8.0f;
+float probability_reload = 0.1f; //probability for sound to play. must be between 0.0f and 1.0f
+float reload_wait = 8.0f; //how long to wait before attempt to play another reload sound
 
-array<bool> array_reload(g_Engine.maxClients, false);
+array<bool> array_reload(g_Engine.maxClients, false); //tracking if player reload was already checked
 
 void set_pPlayer_reload(CBasePlayer@ pPlayer,bool state=true)
 {
@@ -444,6 +457,7 @@ void set_pPlayer_reload(CBasePlayer@ pPlayer,bool state=true)
        array_reload[pPlayer.entindex()-1] = state;
 } 
 
+// These sounds will play when player is reloading
 const array<string> g_soundfiles_reload =
 {
 "chat/up10/reload1.wav",
@@ -452,6 +466,7 @@ const array<string> g_soundfiles_reload =
 "chat/up10/reload5.wav"
 };
 
+// These sounds will play exclusively when player reloads revolver/magnum/357
 const array<string> g_soundfiles_reload_revolver =
 {
 "chat/up10/reload3.wav",
@@ -464,10 +479,10 @@ CClientCommand g_cs("cs", "List all chatsounds console commands", @cs_command);
 CClientCommand g_ListSounds("listsounds", "List all chat sounds", @listsounds_command);
 CClientCommand g_CSVolume("csvolume", "Set volume (0-1) for all chat sounds", @csvolume_command);
 
-array<bool> array_imded(g_Engine.maxClients, false);
-dictionary g_SoundList;
-array<string> g_SoundListKeys;
-array<uint> arr_active_players; // pPlayer.entindex() values of active players
+array<bool> array_imded(g_Engine.maxClients, false); // "imded" triggers player suicide; tracking if player is dead
+dictionary g_SoundList; //keys are chat triggers; values are sound filepaths
+array<string> g_SoundListKeys; // array of chat triggers printed with .listsounds (does not include secret sounds)
+array<uint> arr_active_players; // optimization. pPlayer.entindex() values of active players
 
 void SetPlayerGlowColor(CBasePlayer@ pPlayer, Vector rgb)
 {
@@ -495,18 +510,21 @@ void csvolume_command(const CCommand@ pArgs)
 	csvolume(pArgs, pPlayer);
 }
 
+// Allow player to change chatsounds volume between 0 and 1
 void csvolume(const CCommand@ pArgs, CBasePlayer@ pPlayer)
 {
     
     if (pPlayer !is null && pPlayer.IsConnected() && pPlayer.IsPlayer())
     {
         
-        uint pPlayer_index = pPlayer.entindex()-1;
+        uint pPlayer_index = pPlayer.entindex()-1; //pPlayer.entindex() starts at 1; first array index is 0
         float volume = arr_volumes[pPlayer_index];
     
         if (pArgs.ArgC() < 2)
         {
             g_PlayerFuncs.SayText(pPlayer, "csvolume is " + string(volume) + "\n");
+            if (volume < 1)
+               all_volumes_1=false;
             return;
         }
             
@@ -519,6 +537,7 @@ void csvolume(const CCommand@ pArgs, CBasePlayer@ pPlayer)
         arr_volumes[pPlayer_index] = volume_new;
         g_PlayerFuncs.SayText(pPlayer, "csvolume is " + volume_new + "\n");
         
+        // If player has lowered chatsounds volume, stop all sounds just in case
         if (volume_new<volume)
         {
             NetworkMessage msg(MSG_ONE, NetworkMessages::SVC_STUFFTEXT, pPlayer.edict() );
@@ -537,7 +556,7 @@ void csvolume(const CCommand@ pArgs, CBasePlayer@ pPlayer)
     }
 }
 
-array<string> g_soundfiles_precached;
+array<string> g_soundfiles_precached; // optimization - tracking already precached audio
 
 void preacache_sound(string snd_file)
 {
@@ -545,10 +564,10 @@ void preacache_sound(string snd_file)
    if (snd_file.IsEmpty())
       return;
 
-   if (g_soundfiles_precached.find(snd_file)<0)
+   if (g_soundfiles_precached.find(snd_file)<0) //negative index means it wasn't found
    {
    g_Game.PrecacheGeneric("sound/" + snd_file);
-   g_SoundSystem.PrecacheSound(snd_file);
+   g_SoundSystem.PrecacheSound(snd_file); //have to precachegeneric AND precachesound due to a bug with the engine
    g_soundfiles_precached.insertLast(snd_file);
    }
 }
@@ -559,6 +578,7 @@ void preacache_sound_array(array<string> g_soundfiles)
       preacache_sound(g_soundfiles[i]);
 }
 
+// Reads .cfg file and loads file paths. Taken from incognico's script
 void ReadSounds()
 {
   File@ file = g_FileSystem.OpenFile(g_SoundFile, OpenFile::READ);
@@ -575,6 +595,7 @@ void ReadSounds()
         continue;
 
       g_SoundList[parsed[0]] = parsed[1];
+      // parsed[2] could be used for tracking duration of file?
     }
     file.Close();
   }
@@ -594,7 +615,7 @@ void PluginInit()
   g_Hooks.RegisterHook(Hooks::Player::PlayerPostThink, @PlayerPostThink);
   
   // read single-line triggers
-  ReadSounds();
+  ReadSounds(); // g_SoundList gets populated
   
   g_SoundListKeys = g_SoundList.getKeys();
   
@@ -623,9 +644,10 @@ void PluginInit()
 void MapInit()
 {
 
+  // Sound files must be precached at every map init.
   g_soundfiles_precached.resize(0);
   
-  // precache single-sound triggers
+  // precache single-sound triggers.
   string temp_key;
   for (uint i = 0; i < g_SoundListKeys.length(); ++i)
   {
@@ -652,7 +674,7 @@ void MapInit()
   preacache_sound_array(g_soundfiles_petition1);
   preacache_sound_array(g_soundfiles_petition2);
   
-  // preache hidden sound triggers here
+  // preache hidden sound triggers
   preacache_sound(g_soundfile_secret);
   preacache_sound(g_soundfile_zombie_autotune);
   preacache_sound(g_soundfile_payne_music);
@@ -689,6 +711,7 @@ void listsounds_command(const CCommand@ pArgs)
 	listsounds(pArgs, pPlayer);
 }
 
+// .listsounds command. Taken from incognico's script
 void listsounds(const CCommand@ pArgs, CBasePlayer@ pPlayer)
 {
 
@@ -716,17 +739,20 @@ void listsounds(const CCommand@ pArgs, CBasePlayer@ pPlayer)
   g_PlayerFuncs.ClientPrint(pPlayer, HUD_PRINTCONSOLE, "\n");
 }
 
+// Sweet spot for healing with nishiki
 void nishiki_sweet()
 {
 nishiki_timing=true;
 }
 
+// End sweet spot
 void nishiki_end_sweet()
 {
 nishiki_timing=false;
 nishiki_stage=false;
 }
 
+// End nishiki
 void nishiki_end()
 {
 nishiki = false;
@@ -735,6 +761,8 @@ nishiki_timing=false;
 
 void race_prep()
 {
+   GetActivePlayerIndices();
+   // sticking to g_Engine.maxClients in case more players join during the race.
    race_happening=true;
    arr_race_origins = array<Vector>(g_Engine.maxClients);
    arr_race_distances = array<float>(g_Engine.maxClients, 0.0f);
@@ -755,6 +783,8 @@ void race_prep()
 void race_start()
 {
    race_happening=true;
+   
+   //prevent players from teleporting with !goto
    if (speed_disableGoto)
    {
        g_EngineFuncs.ServerCommand("as_command .goto_startrace\n");
@@ -798,9 +828,9 @@ void race_update()
 
 void race_end()
 {
-   
+   // Speed Weed
    if (Math.RandomLong(0,100)<10)
-       g_PlayerFuncs.ShowMessageAll("Directed by Speed Weed");
+       g_PlayerFuncs.ShowMessageAll("Directed by Speed Weed"); //Speed Weed
    
    for (uint i = 0; i < arr_active_players.length(); i++)
    {
@@ -845,6 +875,7 @@ void race_end()
           {
               g_PlayerFuncs.ClientPrintAll(HUD_PRINTTALK, "[chatsounds] #"+string(i_rank+1)+" "+string(pPlayer.pev.netname)+" "+string(int(arr_race_distances[index_temp]))+"\n");
               
+              // play sound effect privately to winner player
               if (g_SoundList.exists("nice"))
               {
          		   
@@ -865,6 +896,8 @@ void race_end()
       g_PlayerFuncs.ClientPrintAll(HUD_PRINTTALK,"[chatsounds] everybody lost, the end.\n");
    
    race_happening=false;
+   
+   //allow players to teleport with !goto
    if (speed_disableGoto)
    {
        g_EngineFuncs.ServerCommand("as_command .goto_endrace\n");
@@ -883,6 +916,11 @@ void print_all_hud(string msg)
 g_PlayerFuncs.CenterPrintAll(msg);
 }
 
+// get random element from array of strings
+string get_array_random_snd_file(array<string> g_soundfiles)
+{
+   return g_soundfiles[uint(Math.RandomLong(0,g_soundfiles.length()-1))];
+}
 
 HookReturnCode ClientSay(SayParameters@ pParams)
 {
@@ -898,7 +936,8 @@ HookReturnCode ClientSay(SayParameters@ pParams)
        return HOOK_CONTINUE;
        
     uint pPlayer_index = pPlayer.entindex()-1; //entindex 1 corresponds to first element (0) in array
-
+    
+    // if pPlayer csvolume is 0, assume they don't want to be bothered by chatsounds
     if ( ( g_SoundListKeys.find(soundArg)>=0 or soundArg=="secret") and (arr_volumes[pPlayer_index]>0) )
     {
     
@@ -926,11 +965,12 @@ HookReturnCode ClientSay(SayParameters@ pParams)
             string snd_file = "";
             bool silent_mode = false; //hide chat message if true
             bool hide_sound = false; //do not play sound if true
-            bool interrupt_player = false; //exit hook prematurely if true
-            bool hide_sprite = false;
-            float t_delay = 0.0f;
+            bool interrupt_player = false; //exit hook prematurely if true (prevents any further scripting from activating)
+            bool hide_sprite = false; // hide sprite above player model if true
+            float t_delay = 0.0f; //time delay between sound trigger activation and sound playing in seconds
             
-            // Check for additional arguments: pitch, silent mode.
+            // Check for additional arguments: pitch, silent mode, time delay.
+            // Syntax: trigger pitch s delay
             if (numArgs > 1)
             {
               
@@ -988,7 +1028,7 @@ HookReturnCode ClientSay(SayParameters@ pParams)
               }
             }
             
-            //determine snd_file
+            // Determine snd_file
             if (soundArg=="desperate")
             {
                if (desperate)
@@ -1006,28 +1046,32 @@ HookReturnCode ClientSay(SayParameters@ pParams)
                dental = !dental;
             }
             else if (soundArg=="duke")
-               snd_file = g_soundfiles_duke[uint(Math.RandomLong(0,g_soundfiles_duke.length()-1))];
+               snd_file = get_array_random_snd_file(g_soundfiles_duke);
             else if (soundArg=="dracula")
-               snd_file = g_soundfiles_dracula[uint(Math.RandomLong(0,g_soundfiles_dracula.length()-1))];
+               snd_file = get_array_random_snd_file(g_soundfiles_dracula);
             else if (soundArg=="meow")
-               snd_file = g_soundfiles_meow[uint(Math.RandomLong(0,g_soundfiles_meow.length()-1))];
+               snd_file = get_array_random_snd_file(g_soundfiles_meow);
             else if (soundArg=="secret")
                snd_file = g_soundfile_secret;
             else if (soundArg=="funky")
-               snd_file = g_soundfiles_funky[uint(Math.RandomLong(0,g_soundfiles_funky.length()-1))];
+               snd_file = get_array_random_snd_file(g_soundfiles_funky);
             else if (soundArg=="zombiegoasts")
-               snd_file = g_soundfiles_zombiegoasts[uint(Math.RandomLong(0,g_soundfiles_zombiegoasts.length()-1))];
+               snd_file = get_array_random_snd_file(g_soundfiles_zombiegoasts);
             else if (soundArg=="scream")
-               snd_file = g_soundfiles_scream[uint(Math.RandomLong(0,g_soundfiles_scream.length()-1))];
+               snd_file = get_array_random_snd_file(g_soundfiles_scream);
             else if (soundArg=="thinking")
-               snd_file = g_soundfiles_thinking[uint(Math.RandomLong(0,g_soundfiles_thinking.length()-1))];
+               snd_file = get_array_random_snd_file(g_soundfiles_thinking);
             else if (soundArg=="payne")
-               snd_file = g_soundfiles_payne[uint(Math.RandomLong(0,g_soundfiles_payne.length()-1))];
+               snd_file = get_array_random_snd_file(g_soundfiles_payne);
             else if (soundArg=="petition")
                snd_file = get_petition_snd_file();
+            else if (soundArg=="speed")
+               snd_file = g_soundfiles_speed[i_race];
             else
                snd_file = string(g_SoundList[soundArg]);
-               
+             
+            if (snd_file.IsEmpty())
+               return HOOK_CONTINUE;
             
             if (interrupt_dict.exists(soundArg))
                audio_channel = CHAN_STREAM;
@@ -1040,8 +1084,6 @@ HookReturnCode ClientSay(SayParameters@ pParams)
                audio_channel = CHAN_MUSIC;
                if (race_happening or !pPlayer.IsAlive())
                   interrupt_player=true;
-               else
-                  snd_file = g_soundfiles_speed[i_race];
                
             }
             else if (soundArg=="nishiki")
@@ -1228,7 +1270,6 @@ HookReturnCode ClientSay(SayParameters@ pParams)
         	else if (soundArg == 'speed')
         	{
         	   
-        	   GetActivePlayerIndices();
         	   race_prep();
         	   float race_startdelay = t_delay+5.0f;
         	   float race_endtime = t_delay+19.0f;
@@ -1334,7 +1375,7 @@ HookReturnCode ClientSay(SayParameters@ pParams)
         	
         	}
         	
-        	// Make npcs around the player spin and emit pain sounds
+        	// Make npcs around the player spin and emit pain sounds -- couldn't get this to work without breaking shit
         	//else if (soundArg == "funky" or soundArg == "speen" or soundArg == "speeen")
         	//{
         	//   
@@ -1419,6 +1460,7 @@ HookReturnCode ClientSay(SayParameters@ pParams)
     	       if (t_delay>0.0f)
     	       {
     	         string fun_play_sound;
+    	         // this is godawful but SetTimeout does not accept enums.
     	         if (audio_channel == CHAN_AUTO)
     	            fun_play_sound = "play_sound_auto";
 	             else if (audio_channel == CHAN_STREAM)
@@ -1471,6 +1513,7 @@ HookReturnCode ClientSay(SayParameters@ pParams)
        if (soundArg==".cs" )
        {
           print_cs(pArguments, pPlayer);
+          g_PlayerFuncs.ClientPrint(pPlayer, HUD_PRINTNOTIFY, "See console.\n");
           pParams.ShouldHide = true;
           return HOOK_HANDLED;
        }
@@ -1670,6 +1713,7 @@ void crowbar_end(CBasePlayer@ pPlayer, CBasePlayerWeapon@ pPlayer_crowbar)
    }
 }
 
+// Extremely unoptimized way to check if player is reloading
 HookReturnCode PlayerPostThink(CBasePlayer@ pPlayer)
 {
   if ( pPlayer.IsAlive() and probability_reload>0.0f )
@@ -1811,19 +1855,13 @@ void gib_player(CBasePlayer@ pPlayer)
 void play_sound_zombie(CBasePlayer@ pPlayer,int in_pitch)
 {
    if (pPlayer.IsConnected() and pPlayer !is null)
-   {
        play_sound(pPlayer,CHAN_STREAM,g_soundfile_zombie_autotune,1.0f,0.3f,in_pitch,true);
-       pPlayer.ShowOverheadSprite(g_SpriteName, 56.0f, 2.25f);
-   }
 }
 
 void play_sound_nishiki(CBasePlayer@ pPlayer,int in_pitch)
 {
    if (pPlayer.IsConnected() and pPlayer !is null)
-   {
        play_sound(pPlayer,CHAN_STREAM,string(g_SoundList["nishiki"]),1.0f,0.3f,in_pitch,true);
-       pPlayer.ShowOverheadSprite(g_SpriteName, 56.0f, 2.25f);
-   }
 }
 
 void play_sound_scream(CBasePlayer@ pPlayer,int in_pitch)
@@ -1832,7 +1870,6 @@ void play_sound_scream(CBasePlayer@ pPlayer,int in_pitch)
    {
        string snd_file = g_soundfiles_scream[uint(Math.RandomLong(0,g_soundfiles_scream.length()-1))];  
        play_sound(pPlayer,CHAN_AUTO,snd_file,1.0f,0.3f,in_pitch,true);
-       pPlayer.ShowOverheadSprite(g_SpriteName, 56.0f, 2.25f);
    }
 }
 
@@ -1952,10 +1989,12 @@ HookReturnCode PlayerKilled(CBasePlayer@ pPlayer, CBaseEntity@ pAttacker, int iG
 
 HookReturnCode MapChange()
 {
-  g_Scheduler.ClearTimerList();
+  g_Scheduler.ClearTimerList(); //server will crash if timers arent cleared between map changes.
   return HOOK_CONTINUE;
 }
 
+// Why do it like this? g_PlayerFuncs.GetNumPlayers() only gives you the number of active players.
+// The engine will sometimes skip player indices. We need to keep track of indices not occupied by an active player.
 void GetActivePlayerIndices()
 {
    arr_active_players.resize(0);
