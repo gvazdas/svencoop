@@ -13,7 +13,7 @@ void print_cs(const CCommand@ pArgs, CBasePlayer@ pPlayer)
     g_PlayerFuncs.SayText(pPlayer, "[chatsounds] To hide chatsounds text, add ' s'. For example, hello s or hello ? s" + "\n");
     g_PlayerFuncs.SayText(pPlayer, "[chatsounds] Full syntax: trigger pitch s delay" + "\n");
     g_PlayerFuncs.SayText(pPlayer, "[chatsounds] Other commands: .listsounds .csvolume" + "\n");
-    g_PlayerFuncs.ClientPrint(pPlayer, HUD_PRINTCONSOLE, "[chatsounds] version 2024-05-23\n");
+    g_PlayerFuncs.ClientPrint(pPlayer, HUD_PRINTCONSOLE, "[chatsounds] version 2024-05-24\n");
     g_PlayerFuncs.ClientPrint(pPlayer, HUD_PRINTCONSOLE, "For the latest version go to https://github.com/gvazdas/svencoop\n");
     //CBasePlayer@ pBot = g_PlayerFuncs.CreateBot("Dipshit");
 }
@@ -155,10 +155,12 @@ const array<string> g_soundfiles_funky =
 
 // "desperate" Deus Ex meme (alternating)
 bool desperate; //tracking which sound should play next
+uint desperate1_index=g_Engine.maxClients+1; //tracking if player used first line (follow up logic)
 const array<string> g_soundfiles_desperate =
 {
 "chat/up7/desperate1.wav",
-"chat/up7/desperate2.wav"
+"chat/up7/desperate2.wav",
+"chat/up7/desperate1_2.wav"
 };
 
 // "dental" Simpsons dental plan meme
@@ -643,6 +645,7 @@ void PluginInit()
 
 void MapInit()
 {
+  
 
   // Sound files must be precached at every map init.
   g_soundfiles_precached.resize(0);
@@ -689,6 +692,7 @@ void MapInit()
   arr_ChatTimes = array<float>(g_Engine.maxClients, 0.0f);
   
   i_petition=0;
+  desperate1_index=g_Engine.maxClients+1;
   
   all_volumes_1=true;
   race_happening = false;
@@ -1031,11 +1035,26 @@ HookReturnCode ClientSay(SayParameters@ pParams)
             // Determine snd_file
             if (soundArg=="desperate")
             {
+               
                if (desperate)
+               {
                   snd_file = g_soundfiles_desperate[0];
+                  desperate1_index=pPlayer_index;
+                  desperate = !desperate;
+               }
                else
+               {
+                  if (desperate1_index==pPlayer_index)
+                  {
+                  desperate1_index=g_Engine.maxClients+1;
+                  snd_file = g_soundfiles_desperate[2];
+                  }
+                  else
+                  {
                   snd_file = g_soundfiles_desperate[1];
-               desperate = !desperate;
+                  desperate = !desperate;
+                  }
+               }
             }
             else if (soundArg=="dental")
             {
