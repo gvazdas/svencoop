@@ -13,7 +13,7 @@ void print_cs(const CCommand@ pArgs, CBasePlayer@ pPlayer)
     g_PlayerFuncs.SayText(pPlayer, "[chatsounds] To hide chatsounds text, add ' s'. For example, hello s or hello ? s" + "\n");
     g_PlayerFuncs.SayText(pPlayer, "[chatsounds] Full syntax: trigger pitch s delay" + "\n");
     g_PlayerFuncs.SayText(pPlayer, "[chatsounds] Other commands: .listsounds .csvolume" + "\n");
-    g_PlayerFuncs.ClientPrint(pPlayer, HUD_PRINTCONSOLE, "[chatsounds] version 2024-05-24\n");
+    g_PlayerFuncs.ClientPrint(pPlayer, HUD_PRINTCONSOLE, "[chatsounds] version 2024-05-25\n");
     g_PlayerFuncs.ClientPrint(pPlayer, HUD_PRINTCONSOLE, "For the latest version go to https://github.com/gvazdas/svencoop\n");
     //CBasePlayer@ pBot = g_PlayerFuncs.CreateBot("Dipshit");
 }
@@ -96,6 +96,26 @@ bool nishiki_stage = false; //tracking whether timing is too early or too late
 array<bool> nishiki_fail(g_Engine.maxClients, false); //tracking if player has already failed timing game
 int nishiki_pitch; //tracking pitch of nishiki sound
 
+// Sweet spot for healing with nishiki
+void nishiki_sweet()
+{
+nishiki_timing=true;
+}
+
+// End sweet spot
+void nishiki_end_sweet()
+{
+nishiki_timing=false;
+nishiki_stage=false;
+}
+
+// End nishiki
+void nishiki_end()
+{
+nishiki = false;
+nishiki_timing=false;
+}
+
 // "duke" Duke Nukem memes
 const array<string> g_soundfiles_duke =
 {
@@ -130,6 +150,8 @@ const array<string> g_soundfiles_thinking =
 };
 
 // Spawn sounds
+float ppk_cooldown = 10.0f; // cooldown before another spawn sound can play
+bool spawn_cooldown = false;
 const array<string> g_soundfiles_ppk =
 {
 "chat/up3/ppk.wav",
@@ -137,6 +159,11 @@ const array<string> g_soundfiles_ppk =
 "chat/up9/ppk2.wav",
 "chat/up9/ppk3.wav"
 };
+
+void set_spawn_cooldown_state(bool state)
+{
+spawn_cooldown = state;
+}
 
 //"zombiegoasts"
 const array<string> g_soundfiles_zombiegoasts =
@@ -216,6 +243,14 @@ const array<string> g_soundfiles_dracula =
 "chat/up7/dracula4.wav",
 "chat/up7/dracula5.wav",
 "chat/up7/dracula6.wav"
+};
+
+/////
+
+// customized scripting sounds
+const array<string> g_soundfiles_other =
+{
+"chat/up10/flush.wav"
 };
 
 /////
@@ -681,6 +716,7 @@ void MapInit()
   preacache_sound(g_soundfile_secret);
   preacache_sound(g_soundfile_zombie_autotune);
   preacache_sound(g_soundfile_payne_music);
+  preacache_sound_array(g_soundfiles_other);
   
   g_Game.PrecacheGeneric(g_SpriteName);
   g_Game.PrecacheModel(g_SpriteName);
@@ -693,6 +729,7 @@ void MapInit()
   
   i_petition=0;
   desperate1_index=g_Engine.maxClients+1;
+  spawn_cooldown=false;
   
   all_volumes_1=true;
   race_happening = false;
@@ -741,26 +778,6 @@ void listsounds(const CCommand@ pArgs, CBasePlayer@ pPlayer)
   }
 
   g_PlayerFuncs.ClientPrint(pPlayer, HUD_PRINTCONSOLE, "\n");
-}
-
-// Sweet spot for healing with nishiki
-void nishiki_sweet()
-{
-nishiki_timing=true;
-}
-
-// End sweet spot
-void nishiki_end_sweet()
-{
-nishiki_timing=false;
-nishiki_stage=false;
-}
-
-// End nishiki
-void nishiki_end()
-{
-nishiki = false;
-nishiki_timing=false;
 }
 
 void race_prep()
@@ -1038,7 +1055,7 @@ HookReturnCode ClientSay(SayParameters@ pParams)
                
                if (desperate)
                {
-                  snd_file = g_soundfiles_desperate[0];
+                  snd_file = g_soundfiles_desperate[0]; // 1 Desperate.
                   desperate1_index=pPlayer_index;
                   desperate = !desperate;
                }
@@ -1047,11 +1064,12 @@ HookReturnCode ClientSay(SayParameters@ pParams)
                   if (desperate1_index==pPlayer_index)
                   {
                   desperate1_index=g_Engine.maxClients+1;
-                  snd_file = g_soundfiles_desperate[2];
+                  snd_file = g_soundfiles_desperate[2]; // 1 Your turn.
                   }
                   else
                   {
-                  snd_file = g_soundfiles_desperate[1];
+                  desperate1_index=g_Engine.maxClients+1;
+                  snd_file = g_soundfiles_desperate[1]; // 2 Desperate.
                   desperate = !desperate;
                   }
                }
@@ -1377,6 +1395,7 @@ HookReturnCode ClientSay(SayParameters@ pParams)
         	   float t_scream_delaystart;
         	   float t_scream_total = 2.5f * (100/float(pitch));
         	   
+        	   // Make players scream
         	   for (uint i = 0; i < arr_active_players.length(); i++)
                {
                   CBasePlayer@ pPlayer_scream = g_PlayerFuncs.FindPlayerByIndex(arr_active_players[i]);
@@ -1390,6 +1409,31 @@ HookReturnCode ClientSay(SayParameters@ pParams)
                   if ( (pPlayer_origin.opSub(pPlayer_scream_origin).Length() <= scream_distance) and (i!=pPlayer_index) )
                   	 g_Scheduler.SetTimeout("play_sound_scream",t_delay+t_scream_delaystart,@pPlayer_scream,pitch); 
                      
+               }
+               
+               // Make alive scientist NPCs scream
+               for (int i = 1; i < (g_Engine.maxEntities); i++)
+               {
+               
+                   edict_t@ temp_edict = g_EngineFuncs.PEntityOfEntIndex(i);
+                   CBaseEntity@ pEntity = g_EntityFuncs.Instance(temp_edict);
+                   if (pEntity !is null and !pEntity.IsPlayer() and pEntity.IsAlive())
+                   {
+                   
+                       if (pPlayer_origin.opSub(pEntity.GetOrigin()).Length() <= scream_distance)
+                       {
+                            string temp_model = pEntity.pev.model;
+                            if (temp_model.Find("scientist")!=String::INVALID_INDEX)
+                            {
+                            CBaseMonster@ pMonster = cast<CBaseMonster@>(pEntity);
+                            t_scream_delaystart = 1.85f + Math.RandomFloat(-0.05f,0.2f);
+                            t_scream_delaystart *= (100/float(pitch));
+                            g_Scheduler.SetTimeout("monster_pain",t_scream_delaystart,@pMonster);
+                            }
+                       }
+                   
+                   }
+                   
                }
         	
         	}
@@ -1849,14 +1893,14 @@ void pPlayer_setscale(CBasePlayer@ pPlayer, float scale = 1.0f)
 //   }
 //}
 
-//void monster_pain(CBaseMonster@ pMonster)
-//{
-//   if (pMonster !is null)
-//   {
-//       if (pMonster.IsAlive())
-//          pMonster.PainSound();
-//   }
-//}
+void monster_pain(CBaseMonster@ pMonster)
+{
+   if (pMonster !is null)
+   {
+       if (pMonster.IsAlive())
+          pMonster.PainSound();
+   }
+}
 
 void gib_player(CBasePlayer@ pPlayer)
 {
@@ -1990,8 +2034,12 @@ HookReturnCode PlayerSpawn(CBasePlayer@ pPlayer)
   if (race_happening)
      clients_ignorespeed[pPlayer.entindex()-1]=true;
   
-  if (pPlayer.HasNamedPlayerItem("weapon_9mmhandgun") !is null or pPlayer.HasNamedPlayerItem("weapon_glock") !is null)
+  if ((pPlayer.HasNamedPlayerItem("weapon_9mmhandgun") !is null or pPlayer.HasNamedPlayerItem("weapon_glock") !is null) and !spawn_cooldown)
+  {
       play_sound(pPlayer,CHAN_AUTO,g_soundfiles_ppk[uint(Math.RandomLong(0,g_soundfiles_ppk.length()-1))],1.0f,0.7f,100,true);
+      set_spawn_cooldown_state(true);
+      g_Scheduler.SetTimeout("set_spawn_cooldown_state",ppk_cooldown,false);
+  }
   
   array_imded[pPlayer.entindex()-1]=false;
   
@@ -2002,6 +2050,12 @@ HookReturnCode PlayerKilled(CBasePlayer@ pPlayer, CBaseEntity@ pAttacker, int iG
 {
     if (race_happening)
        clients_ignorespeed[pPlayer.entindex()-1]=true;
+    
+    if (g_EngineFuncs.GetInfoKeyBuffer(pPlayer.edict()).GetValue("model")=="toilet")
+    {
+    play_sound(pPlayer,CHAN_AUTO,g_soundfiles_other[0],1.0f,0.7f,100,true);
+    }
+    
     return HOOK_CONTINUE;
 }
 
