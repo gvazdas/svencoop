@@ -1,2 +1,8 @@
-To fix sound issues, type 'stopsound' in console.
-To see all chatsounds commands, type '.cs' in console.
+To fix sound issues, type 'stopsound' and 'cl_stopsound' in console.
+To see all chatsounds commands, type '.cs'.
+To pass through players, press your use key.
+To teleport to other players, type "!goto player" or "!goto menu" in chat.
+To rock the vote, type 'rtv'.
+To nominate maps for rtv, type 'nominate'.
+Type 'caramel' in chat and see what happens.
+Type 'speed' in chat to race other players.
