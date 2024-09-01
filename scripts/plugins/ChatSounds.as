@@ -28,9 +28,9 @@ void print_cs(const CCommand@ pArgs, CBasePlayer@ pPlayer)
     g_PlayerFuncs.SayText(pPlayer, "[chatsounds] To hide chatsounds text, add ' s'. For example, hello s or hello ? s" + "\n");
     g_PlayerFuncs.SayText(pPlayer, "[chatsounds] Full syntax: trigger pitch s delay" + "\n");
     g_PlayerFuncs.SayText(pPlayer, "[chatsounds] Other commands: .listsounds .csvolume" + "\n");
-    g_PlayerFuncs.ClientPrint(pPlayer, HUD_PRINTCONSOLE, "[chatsounds] version 1.0\n");
+    g_PlayerFuncs.ClientPrint(pPlayer, HUD_PRINTCONSOLE, "[chatsounds] version 1.02\n");
     g_PlayerFuncs.ClientPrint(pPlayer, HUD_PRINTCONSOLE, "For the latest version go to https://github.com/gvazdas/svencoop\n");
-    //CBasePlayer@ pBot = g_PlayerFuncs.CreateBot("Dipshit");
+    CBasePlayer@ pBot = g_PlayerFuncs.CreateBot("Dipshit");
 }
 
 //// 
@@ -44,7 +44,9 @@ const bool admin_only = false; //if true, allow only admins to trigger chat soun
 const bool pitch_control = true; // false to disable chatsounds pitch control
 const bool delay_control = true; // false to disable chatsounds delay control
 const bool enable_silent = true; // true allows players to hide chatsounds text in chat by adding "s" to trigger
-const bool event_exclude = true; // if true, only one event type sound can be played at any time in the whole server.
+const bool interrupt_spam = true; // interrupt event type sounds if played more frequently by a player than set in interrupt_dict
+const bool event_no_overlap = true; // each sound in triggers_no_overlap can be played only by one person at any time in the whole server.
+const bool event_exclude = false; // if true, only one event type sound can be played at any time in the whole server. (see interrupt_dict)
 
 const bool spawnsounds_enable = true; // false to disable spawn sounds when player spawns with a glock
 const bool nishiki_enable = true; // false to disable "nishiki"
@@ -71,15 +73,18 @@ const bool standing_enable = true; // false to disable "standing"
 const bool reloadsounds_enable = true; // false to disable reload sounds
 const bool bug_enable = true; // false to disable "bug"
 const bool imded_enable = true; // false to disable "imded"
+const bool gman_enable = true; // false to disable "gman"
+const bool hammy_enable = true; // false to disable "hammy"
 
 //// 
 
-// Specify "event type" sound triggers here and how long a player must wait before they can trigger again.
+// Specify "event type" sound triggers here and their duration.
 // 1) These sounds will play in CHAN_STREAM instead of CHAN_AUTO.
 // 2) They are less likely to get cut off.
-// 3) They cannot overlap.
+// 3) They cannot overlap for the same sound source.
 const dictionary interrupt_dict =
 {
+{'gman',0.1f},
 {'petition',1.0f},
 {'bimbos',0.5f},
 {'payne',1.0f},
@@ -114,23 +119,58 @@ const dictionary interrupt_dict =
 {'nishiki',2.0f},
 {'wtfboom',8.0f},
 {"sciteam", 3.0f},
+{"hammy", 10.0f},
 {"careless", 11.0f}
 };
 
-//array for tracking when to ignore player chatsounds from interrupt_dict
-array<bool> array_event(g_Engine.maxClients, false);
+// if event_no_overlap=true, sounds played by triggers in triggers_no_overlap will not be allowed to overlap between players.
+// sound duration must be specified in interrupt_dict for this to work.
+const array<string> triggers_no_overlap =
+{
+"standing", "wtfboom", "careless", "speed", "funky", "vengabus",
+"iamthestorm", "war!", "kickgum", "bandit", "scha", "godhand",
+"wombo", "duke2", "rules", "damedane", "isdead", "onlything", "iamthestorm", "tbc", "hero", "hammy"
+};
 
-void pPlayer_event(CBasePlayer@ pPlayer,bool state=true)
+// tracking which sound event player is currently playing
+array<string> player_soundevent(g_Engine.maxClients, "");
+
+// update current sound event emitting from player
+// if state is true, overwrite current trigger
+// if state is false: overwrite to "", unless trigger does not match, then do not overwrite
+void pPlayer_event_update(CBasePlayer@ pPlayer,string trigger,bool state=true)
 {
     if (pPlayer.IsConnected() and pPlayer !is null)
-       array_event[pPlayer.entindex()-1] = state;
-} 
+    {   
+       if (state)
+          player_soundevent[pPlayer.entindex()-1] = trigger;
+       else
+       {
+          if (player_soundevent[pPlayer.entindex()-1]==trigger)
+             player_soundevent[pPlayer.entindex()-1] = "";
+       }
+    }
+}
 
+// check if any player is playing exact same event as you are
+bool is_event_overlapping(string trigger)
+{
+
+    for (uint i = 0; i < arr_active_players.length(); i++)
+    { 
+        if (player_soundevent[arr_active_players[i]-1]==trigger)
+           return true;
+    }
+    return false;
+
+}
+
+// check if any sound event is being played by anyone on the server
 bool IsEventPlaying()
 {
    for (uint i = 0; i < arr_active_players.length(); i++)
    { 
-       if (array_event[arr_active_players[i]-1])
+       if (player_soundevent[arr_active_players[i]-1]!="")
           return true;
    }
    return false;
@@ -220,7 +260,7 @@ void csmute(const CCommand@ pArgs, CBasePlayer@ pPlayer)
 
 CClientCommand g_CSVolume("csvolume", "Set volume (0-1) for all chat sounds", @csvolume_command);
 array<float> arr_volumes(g_Engine.maxClients, 1.0f);
-bool all_volumes_1 = true; //optimization; tracking whether all connected players volume is 1 for sound playback purposes
+bool all_volumes_1 = true; //optimization; tracking whether all connected players volume is set to 1 for playback optimization
 
 void csvolume_command(const CCommand@ pArgs)
 {
@@ -276,7 +316,7 @@ void csvolume(const CCommand@ pArgs, CBasePlayer@ pPlayer)
            all_volumes_1=false;
         else
         {
-           GetActivePlayerIndices();
+           UpdateActivePlayers();
            CheckAllVolumes();
         }
     
@@ -705,6 +745,26 @@ string get_bimbos_snd_file()
 
 /////
 
+// "gman" randomizer
+const array<string> g_soundfiles_gman =
+{
+"chat/gman/gman1.wav",
+"chat/gman/gman2.wav",
+"chat/gman/gman3.wav",
+"chat/gman/gman4.wav",
+"chat/gman/gman5.wav",
+"chat/gman/gman6.wav",
+"chat/gman/gman7.wav",
+"chat/gman/gman8.wav",
+"chat/gman/gman9.wav",
+"chat/gman/gman10.wav",
+"chat/gman/gman11.wav"
+};
+
+/////
+
+
+
 // "payne" Max Payne memes
 bool payne_music = false; //tracking if music is playing
 float payne_music_duration = 15.0f;
@@ -786,7 +846,7 @@ array<bool> clients_ignorespeed(g_Engine.maxClients, false); //for tracking if p
 
 void race_prep()
 {
-   GetActivePlayerIndices();
+   UpdateActivePlayers();
    // sticking to g_Engine.maxClients in case more players join during the race.
    race_happening=true;
    arr_race_origins = array<Vector>(g_Engine.maxClients);
@@ -930,6 +990,89 @@ void race_end()
    }
    
 }
+
+////
+
+// "hammy" Alice Deejay - Better Off Alone randomizer + alternating glow colors for players
+uint hammy_stage = 0;
+
+const array<string> g_soundfiles_hammy =
+{
+"chat/hammy/hammy1.wav",
+"chat/hammy/hammy2.wav",
+"chat/hammy/hammy3.wav"
+};
+
+const array<float> hammy_timings =
+{
+0.0f,
+0.45f,
+0.673f,
+1.112f,
+1.552f,
+1.992f,
+2.431f,
+2.643f,
+2.979f,
+3.299f,
+3.522f,
+3.961f,
+4.181f,
+4.615f,
+5.06f,
+5.495f,
+5.931f,
+6.151f,
+6.466f,
+6.813f,
+7.027f,
+7.465f,
+7.689f,
+8.118f,
+8.551f,
+8.994f,
+9.441f,
+9.651f,
+9.980f
+};
+
+const array<Vector> g_hammy_colors_group1_1 =
+{
+Vector(0,255,0),
+Vector(0,0,255),
+Vector(0,255,255)
+};
+
+const array<Vector> g_hammy_colors_group1_2 =
+{
+Vector(255,255,255),
+Vector(255,0,0),
+Vector(255,255,0)
+};
+
+const array<Vector> g_hammy_colors_group2_1 =
+{
+Vector(255,160,122),
+Vector(255,60,20),
+Vector(110,180,10),
+Vector(240,240,80),
+Vector(100,240,250),
+Vector(0,255,255),
+Vector(0,255,0),
+Vector(255,0,0)
+};
+
+const array<Vector> g_hammy_colors_group2_2 =
+{
+Vector(255,255,0),
+Vector(120,210,255),
+Vector(10,50,190),
+Vector(20,120,255),
+Vector(255,139,255),
+Vector(255,0,255),
+Vector(193,50,175),
+Vector(0,0,255)
+};
 
 ////
 
@@ -1172,6 +1315,7 @@ g_EntityFuncs.CreateExplosion(pPlayer.GetOrigin(),Vector(0,0,0),pPlayer.edict(),
 ////
 
 // standing - MGS meme
+bool standing_playing = false;
 
 void weapon_swap(CBasePlayer@ pPlayer, CBasePlayerWeapon@ pPlayer_crowbar)
 {
@@ -1281,7 +1425,7 @@ void CheckReloads()
                   else
                       snd_file = g_soundfiles_reload[uint(Math.RandomLong(0,g_soundfiles_reload.length()-1))];
                       
-                  t_delay = Math.RandomFloat(0.0f,1.0f);
+                  t_delay = Math.RandomFloat(0.0f,0.5f);
                   g_Scheduler.SetTimeout("play_sound_stream",t_delay,@pPlayer,snd_file,1.0f,0.3f,100,true,true);
               }
            
@@ -1310,7 +1454,7 @@ array<uint> arr_active_players; // optimization. pPlayer.entindex() values of ac
 
 void SetPlayerGlowColor(CBasePlayer@ pPlayer, Vector rgb)
 {
-  if (pPlayer !is null && pPlayer.IsConnected())
+  if (pPlayer !is null && pPlayer.IsConnected() && !pPlayer.GetObserver().IsObserver())
   {
       pPlayer.pev.rendercolor = rgb;
       pPlayer.pev.renderfx = kRenderFxGlowShell;
@@ -1319,7 +1463,7 @@ void SetPlayerGlowColor(CBasePlayer@ pPlayer, Vector rgb)
 
 void TogglePlayerGlow(CBasePlayer@ pPlayer, bool toggle)
 {
-   if (pPlayer !is null && pPlayer.IsConnected())
+   if (pPlayer !is null && pPlayer.IsConnected() && !pPlayer.GetObserver().IsObserver())
    {
        if (toggle)
           pPlayer.pev.renderfx = kRenderFxGlowShell;
@@ -1432,6 +1576,8 @@ void PluginInit()
      g_SoundListKeys.insertLast("thinking");
   if (payne_enable)
      g_SoundListKeys.insertLast("payne");
+  if (gman_enable)
+     g_SoundListKeys.insertLast("gman");
   if (petition_enable)
      g_SoundListKeys.insertLast("petition");
   if (bimbos_enable)
@@ -1440,6 +1586,8 @@ void PluginInit()
      g_SoundListKeys.insertLast("trap");
   if (soy_enable)
      g_SoundListKeys.insertLast("soy");
+  if (hammy_enable)
+     g_SoundListKeys.insertLast("hammy");
   
   g_SoundListKeys.sortAsc();
   
@@ -1502,6 +1650,8 @@ void MapInit()
       preacache_sound_array(g_soundfiles_payne);
       preacache_sound(g_soundfile_payne_music);
   }
+  if (payne_enable)
+     preacache_sound_array(g_soundfiles_gman);
   if (petition_enable)
   {
       preacache_sound_array(g_soundfiles_petition1);
@@ -1527,6 +1677,9 @@ void MapInit()
   
   if (deathsounds_enable)
      preacache_sound_array(g_soundfiles_death);
+     
+  if (hammy_enable)
+     preacache_sound_array(g_soundfiles_hammy);
   
   // preache hidden sound triggers
   preacache_sound(g_soundfile_secret);
@@ -1540,7 +1693,7 @@ void MapInit()
   }
   
   array_imded = array<bool>(g_Engine.maxClients, false);
-  array_event = array<bool>(g_Engine.maxClients, false);
+  player_soundevent = array<string>(g_Engine.maxClients, "");
   array_reload = array<bool>(g_Engine.maxClients, false);
   nishiki_fail = array<bool>(g_Engine.maxClients, false);
   arr_ChatTimes = array<float>(g_Engine.maxClients, 0.0f);
@@ -1549,6 +1702,7 @@ void MapInit()
   i_petition=0;
   desperate1_index=g_Engine.maxClients+1;
   spawn_cooldown=false;
+  standing_playing=false;
   
   end_unatco_music();
   
@@ -1567,6 +1721,8 @@ void MapInit()
   
   if (reloadsounds_enable)
      g_Scheduler.SetInterval("CheckReloads", reload_frequency, g_Scheduler.REPEAT_INFINITE_TIMES);
+   
+  hammy_stage=0;
   
 }
 
@@ -1593,23 +1749,28 @@ HookReturnCode ClientSay(SayParameters@ pParams)
 
   if (numArgs > 0) {
     
-    const string soundArg = pArguments.Arg(0).ToLowercase();
     CBasePlayer@ pPlayer = pParams.GetPlayer();
     
     if (pPlayer is null or !pPlayer.IsConnected())
        return HOOK_CONTINUE;
-       
-    uint pPlayer_index = pPlayer.entindex()-1; //entindex 1 corresponds to first element (0) in array
+      
+    const string soundArg = pArguments.Arg(0).ToLowercase();
     
-    // if pPlayer csvolume is 0, assume they don't want to be bothered by chatsounds
-    if ( ( g_SoundListKeys.find(soundArg)>=0 or soundArg=="secret") and (arr_volumes[pPlayer_index]>0) )
+    if ( ( g_SoundListKeys.find(soundArg)>=0 or soundArg=="secret") )
     {
-    
+      
+      // If player is not admin, don't let them trigger chatsounds. 
       if (admin_only)
       {
           if (!bool(g_PlayerFuncs.AdminLevel(pPlayer) >= ADMIN_YES))
              return HOOK_CONTINUE;
       }
+      
+      uint pPlayer_index = pPlayer.entindex()-1; //entindex 1 corresponds to first element (0) in array
+      
+      // if pPlayer csvolume is 0, assume they don't want chatsounds to do anything.
+      if (arr_volumes[pPlayer_index]<=0.0f)
+         return HOOK_CONTINUE;
     
       float t = g_EngineFuncs.Time();
       float d = t - arr_ChatTimes[pPlayer_index];
@@ -1617,10 +1778,10 @@ HookReturnCode ClientSay(SayParameters@ pParams)
       bool interrupt_player = false; //exit hook prematurely if true (prevents any further scripting from activating)
       
       // If player is being spammy with event-like sounds, interrupt them
-      if (interrupt_dict.exists(soundArg))
+      if (interrupt_dict.exists(soundArg) and (interrupt_spam or event_exclude))
       {
       
-         if (array_event[pPlayer_index])
+         if (player_soundevent[pPlayer_index]!="")
             interrupt_player=true;
          else if (event_exclude)
          {
@@ -1792,12 +1953,27 @@ HookReturnCode ClientSay(SayParameters@ pParams)
                snd_file = get_array_random_snd_file(g_soundfiles_thinking);
             else if (soundArg=="payne" && payne_enable)
                snd_file = get_array_random_snd_file(g_soundfiles_payne);
+            else if (soundArg=="gman" && gman_enable)
+               snd_file = get_array_random_snd_file(g_soundfiles_gman);
             else if (soundArg=="petition" && petition_enable)
                snd_file = get_petition_snd_file();
             else if (soundArg=="bimbos" && bimbos_enable)
                snd_file = get_bimbos_snd_file();
             else if (soundArg=="speed" && speed_enable)
                snd_file = g_soundfiles_speed[i_race];
+            else if (soundArg=="hammy" && hammy_enable)
+            {
+            
+               if (!is_event_overlapping("hammy"))
+               {
+                   snd_file = g_soundfiles_hammy[hammy_stage];
+                   hammy_stage +=1;
+                   if (hammy_stage>2)
+                      hammy_stage=0;
+               }
+               else
+                  snd_file="";
+            }
             else
                snd_file = string(g_SoundList[soundArg]);
              
@@ -1918,7 +2094,7 @@ HookReturnCode ClientSay(SayParameters@ pParams)
         	
         	}
         	// Players near pPlayer should join in the color cycle.
-        	else if (soundArg == 'caramel' && caramel_enable)
+        	else if (soundArg == 'caramel' && caramel_enable && !interrupt_player)
         	{
         	
         	   float t_caramel_delaystart = 1.3f*(100/float(pitch));
@@ -1971,6 +2147,85 @@ HookReturnCode ClientSay(SayParameters@ pParams)
                   }
                      
                }
+        	
+        	}
+        	
+        	// Players near pPlayer should join in the color cycle.
+        	else if (soundArg == 'hammy' && hammy_enable)
+        	{
+        	
+        	   float hammy_distance = 1000.0f;
+        	   CBasePlayer@ pPlayer_hammy;
+        	   array<Vector> colorgroup;
+        	   Vector color;
+        	   float curr_delay=0.0f;
+        	   uint i_color = 0;
+        	   bool randomize_all = false;
+        	   bool colors_basic = true;
+        	   if (hammy_stage!=1)
+        	      colors_basic=false;
+        	   if (hammy_stage==0)
+        	      randomize_all=true;
+        	      
+        	   // identify players within hammy_distance
+        	   array<CBasePlayer@> hammy_pPlayers;
+        	   hammy_pPlayers.resize(0);
+        	   for (uint i = 0; i < arr_active_players.length(); i++)
+        	   {
+        	      @pPlayer_hammy = g_PlayerFuncs.FindPlayerByIndex(arr_active_players[i]);  
+        	      Vector pPlayer_hammy_origin = pPlayer_hammy.GetOrigin();
+                  float current_distance = pPlayer_origin.opSub(pPlayer_hammy_origin).Length();
+                  if (current_distance <= hammy_distance)
+                     hammy_pPlayers.insertLast(pPlayer_hammy);
+        	   }
+        	   
+        	   
+        	   // apply colors at specified times
+        	   bool first_group = true; //always cycle between groups so that color changes are guaranteed
+        	   for (uint i_timing = 0; i_timing < hammy_timings.length(); i_timing++)
+        	   {
+        	      
+        	      curr_delay = hammy_timings[i_timing]*(100/float(pitch));
+        	      
+        	      if (colors_basic)
+    	          {
+    	             if (first_group)
+    	                colorgroup=g_hammy_colors_group1_1;
+	                 else
+	                    colorgroup=g_hammy_colors_group1_2;
+    	          }
+    	          else
+    	          {
+    	             if (first_group)
+    	                colorgroup=g_hammy_colors_group2_1;
+	                 else
+	                    colorgroup=g_hammy_colors_group2_2;
+    	          }
+        	      
+        	      if (!randomize_all)
+      	            i_color = Math.RandomLong(0,colorgroup.length()-1);
+        	      
+        	      for (uint i = 0; i < hammy_pPlayers.length(); i++)
+        	      {
+        	       
+        	        @pPlayer_hammy = hammy_pPlayers[i];
+        	        if (randomize_all)
+        	           i_color = Math.RandomLong(0,colorgroup.length()-1);
+        	        color = colorgroup[i_color];
+        	        g_Scheduler.SetTimeout("SetPlayerGlowColor", t_delay+curr_delay, @pPlayer_hammy, color);
+        	      
+        	      }
+        	      
+        	      first_group = !first_group;
+        	   
+        	   }
+        	   
+        	   // clean up at the end
+        	   for (uint i = 0; i < hammy_pPlayers.length(); i++)
+     	       {
+     	         @pPlayer_hammy = hammy_pPlayers[i];
+     	         g_Scheduler.SetTimeout("TogglePlayerGlow", t_delay+curr_delay+0.22f*(100/float(pitch)), @pPlayer_hammy, false);
+     	       }
         	
         	}
         	
@@ -2239,6 +2494,28 @@ HookReturnCode ClientSay(SayParameters@ pParams)
         	
         	if (silent_mode or hide_sound or interrupt_player)
         	   hide_sprite = true;
+        	
+        	if (interrupt_dict.exists(soundArg))
+            {
+               
+               float hold_interrupt = float(interrupt_dict[soundArg])*(100.0/float(pitch));
+               
+               if (event_no_overlap and triggers_no_overlap.find(soundArg)>=0)
+               {
+                   if (is_event_overlapping(soundArg))
+                   {
+                      hide_sound=true;
+                      g_PlayerFuncs.ClientPrint(pPlayer, HUD_PRINTNOTIFY, "[chatsounds] Preventing audio spam.\n");
+                   }
+               }
+               
+               if (!interrupt_player)
+               {
+               pPlayer_event_update(pPlayer,soundArg,true);
+               g_Scheduler.SetTimeout("pPlayer_event_update",t_delay+hold_interrupt,@pPlayer,soundArg,false);
+               }
+            
+            }   
     	    
     	    if (!hide_sound and !interrupt_player)
     	    {
@@ -2273,13 +2550,6 @@ HookReturnCode ClientSay(SayParameters@ pParams)
             
             if (silent_mode or interrupt_player)
         	   pParams.ShouldHide = true;
-    	    
-    	    if (interrupt_dict.exists(soundArg) and !interrupt_player)
-            {
-               float hold_interrupt = float(interrupt_dict[soundArg])*(100.0/float(pitch));
-               pPlayer_event(pPlayer,true);
-               g_Scheduler.SetTimeout("pPlayer_event",t_delay+hold_interrupt,@pPlayer,false);
-            }
 
       }
       else
@@ -2353,9 +2623,9 @@ HookReturnCode ClientDisconnect(CBasePlayer@ pPlayer)
   arr_volumes[pPlayer_index] = 1.0f;
   //arr_cooldowns[pPlayer_index]=0.0f;
   arr_ChatTimes[pPlayer_index] = 0.0f;
-  GetActivePlayerIndices();
+  UpdateActivePlayers();
   CheckAllVolumes();
-  pPlayer_event(pPlayer,false);
+  pPlayer_event_update(pPlayer,"");
   
   if (race_happening)
      arr_race_distances[pPlayer_index] = 0.0f;
@@ -2513,10 +2783,13 @@ void play_sound(CBasePlayer@ pPlayer,SOUND_CHANNEL audio_channel,string snd_file
                 bool setOrigin=true,bool hide_sprite=false)
 {
     
+    if (volume<=0.0f)
+       return;
+    
     float t = g_EngineFuncs.Time();
     //float d = t - arr_ChatPlayTimes[pPlayer.entindex()-1];
 
-    if (all_volumes_1) //check if steamID muted anywhere
+    if (all_volumes_1) //TO DO: check if steamID muted anywhere
        g_SoundSystem.PlaySound(pPlayer.edict(),audio_channel,snd_file,volume,attenuation,0,pitch,0,setOrigin,pPlayer.pev.origin);
     else
     {
@@ -2553,9 +2826,8 @@ HookReturnCode ClientPutInServer(CBasePlayer@ pPlayer)
 {
   uint pPlayer_index = pPlayer.entindex()-1;
   arr_ChatTimes[pPlayer_index] = 0.0f;
-  GetActivePlayerIndices();
+  UpdateActivePlayers();
   CheckAllVolumes();
-  pPlayer_event(pPlayer,false);
   if (race_happening)
   {
      arr_race_distances[pPlayer_index] = 0.0f;
@@ -2564,6 +2836,7 @@ HookReturnCode ClientPutInServer(CBasePlayer@ pPlayer)
   array_imded[pPlayer_index] = false;
   array_reload[pPlayer_index] = false;
   pPlayer_setscale(pPlayer);
+  pPlayer_event_update(pPlayer,"");
   return HOOK_CONTINUE;
 }
 
@@ -2572,11 +2845,14 @@ HookReturnCode PlayerSpawn(CBasePlayer@ pPlayer)
   if (race_happening)
      clients_ignorespeed[pPlayer.entindex()-1]=true;
   
-  if ((pPlayer.HasNamedPlayerItem("weapon_9mmhandgun") !is null or pPlayer.HasNamedPlayerItem("weapon_glock") !is null) and !spawn_cooldown and spawnsounds_enable)
+  if (spawnsounds_enable)
   {
-      play_sound(pPlayer,CHAN_AUTO,g_soundfiles_ppk[uint(Math.RandomLong(0,g_soundfiles_ppk.length()-1))],1.0f,0.7f,100,true);
-      set_spawn_cooldown_state(true);
-      g_Scheduler.SetTimeout("set_spawn_cooldown_state",ppk_cooldown,false);
+      if ((pPlayer.HasNamedPlayerItem("weapon_9mmhandgun") !is null or pPlayer.HasNamedPlayerItem("weapon_glock") !is null) and !spawn_cooldown)
+      {
+          play_sound(pPlayer,CHAN_AUTO,g_soundfiles_ppk[uint(Math.RandomLong(0,g_soundfiles_ppk.length()-1))],1.0f,0.7f,100,true);
+          set_spawn_cooldown_state(true);
+          g_Scheduler.SetTimeout("set_spawn_cooldown_state",ppk_cooldown,false);
+      }
   }
   
   array_imded[pPlayer.entindex()-1]=false;
@@ -2589,7 +2865,7 @@ HookReturnCode PlayerKilled(CBasePlayer@ pPlayer, CBaseEntity@ pAttacker, int iG
     if (race_happening)
        clients_ignorespeed[pPlayer.entindex()-1]=true;
     
-    if (deathsounds_enable and !array_event[pPlayer.entindex()-1])
+    if (deathsounds_enable)
     {
     
         if (g_EngineFuncs.GetInfoKeyBuffer(pPlayer.edict()).GetValue("model")=="toilet")
@@ -2609,9 +2885,10 @@ HookReturnCode MapChange()
   return HOOK_CONTINUE;
 }
 
+
 // Why do it like this? g_PlayerFuncs.GetNumPlayers() only gives you the number of active players.
-// The engine will sometimes skip player indices. I am trying to ignore indices not occupied by an active player to optimize things a bit.
-void GetActivePlayerIndices()
+// The engine will sometimes skip player indices. I am trying to ignore indices not occupied by a player to optimize.
+void UpdateActivePlayers()
 {
    arr_active_players.resize(0);
    for (int i = 1; i <= g_Engine.maxClients; i++)
