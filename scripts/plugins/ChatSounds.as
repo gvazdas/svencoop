@@ -30,7 +30,7 @@ void print_cs(const CCommand@ pArgs, CBasePlayer@ pPlayer)
     g_PlayerFuncs.SayText(pPlayer, "[chatsounds] Other commands: .listsounds .csvolume" + "\n");
     g_PlayerFuncs.ClientPrint(pPlayer, HUD_PRINTCONSOLE, "[chatsounds] version 1.02\n");
     g_PlayerFuncs.ClientPrint(pPlayer, HUD_PRINTCONSOLE, "For the latest version go to https://github.com/gvazdas/svencoop\n");
-    CBasePlayer@ pBot = g_PlayerFuncs.CreateBot("Dipshit");
+    //CBasePlayer@ pBot = g_PlayerFuncs.CreateBot("Dipshit");
 }
 
 //// 
