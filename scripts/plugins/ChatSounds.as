@@ -28,9 +28,18 @@ void print_cs(const CCommand@ pArgs, CBasePlayer@ pPlayer)
     g_PlayerFuncs.SayText(pPlayer, "[chatsounds] To hide chatsounds text, add ' s'. For example, hello s or hello ? s" + "\n");
     g_PlayerFuncs.SayText(pPlayer, "[chatsounds] Full syntax: trigger pitch s delay" + "\n");
     g_PlayerFuncs.SayText(pPlayer, "[chatsounds] Other commands: .listsounds .csvolume" + "\n");
-    g_PlayerFuncs.ClientPrint(pPlayer, HUD_PRINTCONSOLE, "[chatsounds] version 1.02\n");
+    g_PlayerFuncs.ClientPrint(pPlayer, HUD_PRINTCONSOLE, "[chatsounds] version 1.04\n");
     g_PlayerFuncs.ClientPrint(pPlayer, HUD_PRINTCONSOLE, "For the latest version go to https://github.com/gvazdas/svencoop\n");
+    
     //CBasePlayer@ pBot = g_PlayerFuncs.CreateBot("Dipshit");
+    //if (arr_active_players.length()>1)
+    //{
+    //CBasePlayer@ pPlayer_bot = g_PlayerFuncs.FindPlayerByIndex(2);
+    //pPlayer_event_update(pPlayer_bot,"weartie",true);
+    //play_sound_stream(pPlayer_bot,string(g_SoundList["weartie"]),0.7f,0.3f,100,true,false);
+    //g_Scheduler.SetTimeout("pPlayer_event_update",3.0f,@pPlayer_bot,"weartie",false);
+    //}
+    
 }
 
 //// 
@@ -49,7 +58,7 @@ const bool event_no_overlap = true; // each sound in triggers_no_overlap can be 
 const bool event_exclude = false; // if true, only one event type sound can be played at any time in the whole server. (see interrupt_dict)
 
 const bool spawnsounds_enable = true; // false to disable spawn sounds when player spawns with a glock
-const bool nishiki_enable = true; // false to disable "nishiki"
+const bool nishiki_enable = true; // false to disable "nishiki" timing game
 const bool duke_enable = true; // false to disable "duke"
 const bool thinking_enable = true; // false to disable "thinking"
 const bool zombiegoasts_enable = true; // false to disable "zombiegoasts"
@@ -75,8 +84,12 @@ const bool bug_enable = true; // false to disable "bug"
 const bool imded_enable = true; // false to disable "imded"
 const bool gman_enable = true; // false to disable "gman"
 const bool hammy_enable = true; // false to disable "hammy"
+const bool stalker_enable = true; // false to disable "stalker"
+const bool nomatter_enable = true; // false to disable "nomatter" timing game
+const bool lamour_enable = true; // false to disable "lamour"
+const bool weartie_enable = true; // false to disable "wearties"
 
-//// 
+/// 
 
 // Specify "event type" sound triggers here and their duration.
 // 1) These sounds will play in CHAN_STREAM instead of CHAN_AUTO.
@@ -120,7 +133,11 @@ const dictionary interrupt_dict =
 {'wtfboom',8.0f},
 {"sciteam", 3.0f},
 {"hammy", 10.0f},
-{"careless", 11.0f}
+{"careless", 11.0f},
+{"nomatter", 11.0f},
+{"weartie", 3.0f},
+{"basedcringe", 65.0f},
+{"lamour", 6.0f}
 };
 
 // if event_no_overlap=true, sounds played by triggers in triggers_no_overlap will not be allowed to overlap between players.
@@ -129,7 +146,8 @@ const array<string> triggers_no_overlap =
 {
 "standing", "wtfboom", "careless", "speed", "funky", "vengabus",
 "iamthestorm", "war!", "kickgum", "bandit", "scha", "godhand",
-"wombo", "duke2", "rules", "damedane", "isdead", "onlything", "iamthestorm", "tbc", "hero", "hammy"
+"wombo", "duke2", "rules", "damedane", "isdead", "onlything",
+"iamthestorm", "tbc", "hero", "hammy", "nomatter", "basedcringe", "lamour", "caramel"
 };
 
 // tracking which sound event player is currently playing
@@ -342,7 +360,7 @@ void listsounds(const CCommand@ pArgs, CBasePlayer@ pPlayer)
   g_PlayerFuncs.ClientPrint(pPlayer, HUD_PRINTCONSOLE, "AVAILABLE SOUND TRIGGERS\n");
   g_PlayerFuncs.ClientPrint(pPlayer, HUD_PRINTCONSOLE, "------------------------\n");
 
-  string sMessage = "";
+  string sMessage = "random | ";
 
   for (uint i = 1; i < g_SoundListKeys.length()+1; ++i) {
     sMessage += g_SoundListKeys[i-1] + " | ";
@@ -436,7 +454,8 @@ const array<string> g_soundfiles_ppk =
 "chat/up3/ppk.wav",
 "chat/up9/ppk1.wav",
 "chat/up9/ppk2.wav",
-"chat/up9/ppk3.wav"
+"chat/up9/ppk3.wav",
+"chat/up12/ppkbongstyle.wav"
 };
 
 void set_spawn_cooldown_state(bool state)
@@ -993,6 +1012,17 @@ void race_end()
 
 ////
 
+// "stalker" randomized hl2 stalker scream sounds
+
+const array<string> g_soundfiles_stalker =
+{
+"chat/up12/stalker1.wav",
+"chat/up12/stalker2.wav"
+};
+
+
+////
+
 // "hammy" Alice Deejay - Better Off Alone randomizer + alternating glow colors for players
 uint hammy_stage = 0;
 
@@ -1073,6 +1103,175 @@ Vector(255,0,255),
 Vector(193,50,175),
 Vector(0,0,255)
 };
+
+////
+
+// "wearties" reference to ridiculous ties video
+
+bool wearties = false;
+float ties_distance = 1000.0f;
+int wearties_pitch;
+const float ties_duration = 1.7f;
+const string g_soundfile_ties = "chat/up12/ridiculousties.wav";
+
+void wearties_set(bool state)
+{
+wearties=state;
+}
+
+void wearties_chant(CBasePlayer@ pPlayer)
+{
+    
+    if (pPlayer.IsConnected() and pPlayer !is null)
+    {   
+    
+       // Randomize each player chant pitch by -20 to 20
+       int temp_pitch;
+       Vector pPlayer_origin = pPlayer.GetOrigin();
+       for (uint i = 0; i < arr_active_players.length(); i++)
+       {
+          CBasePlayer@ pPlayer_chant = g_PlayerFuncs.FindPlayerByIndex(arr_active_players[i]);
+          if (pPlayer_chant is null or !pPlayer_chant.IsConnected() || pPlayer_chant.GetObserver().IsObserver() || !pPlayer_chant.IsAlive())
+             continue;
+          
+          Vector pPlayer_chant_origin = pPlayer_chant.GetOrigin();
+          float current_distance = pPlayer_origin.opSub(pPlayer_chant_origin).Length();
+          if (current_distance <= ties_distance)
+          {
+             
+             temp_pitch = wearties_pitch + Math.RandomLong(-15,15);
+             if (temp_pitch<50)
+                temp_pitch=50;
+             else if (temp_pitch>255)
+                temp_pitch=255;
+             
+             play_sound_auto(pPlayer_chant,g_soundfile_ties,1.0f,0.3f,temp_pitch,true,false);
+             
+          }
+             
+       }
+       
+    }
+}
+
+
+////
+
+// "lamour" GIGI D'AGOSTINO - L'AMOUR TOUJOURS randomizer + alternating glow colors for players
+uint lamour_stage = 0;
+
+const array<string> g_soundfiles_lamour =
+{
+"chat/up12/lamour1.wav",
+"chat/up12/lamour2.wav",
+"chat/up12/lamour3.wav"
+};
+
+const array<float> lamour1_timings =
+{
+0.123f,
+0.55f,
+0.764f,
+0.981f,
+3.571f,
+4.004f,
+4.218f,
+4.435f
+};
+
+const array<float> lamour2_timings =
+{
+0.118f,
+0.549f,
+0.763f,
+0.981f,
+3.57f,
+4.001f,
+4.216f,
+4.433f,
+4.863f,
+5.079f,
+5.294f,
+5.510f,
+5.725f,
+5.941f,
+6.16f
+};
+
+const array<float> lamour3_timings =
+{
+0.0f,
+0.864f,
+1.294f,
+1.521f,
+1.745f,
+2.606f,
+3.037f,
+3.192f,
+3.465f,
+4.321f,
+4.753f,
+4.985f,
+5.193f,
+5.623f,
+6.046f,
+6.28f,
+6.489f,
+6.708f,
+6.917f,
+7.777f,
+8.205f,
+8.422f,
+8.649f,
+9.498f,
+9.934f,
+10.151f,
+10.367f,
+11.228f,
+11.654f,
+11.873f,
+12.094f,
+12.305f,
+12.522f,
+12.737f,
+12.958f,
+13.171f,
+13.389f,
+13.599f,
+13.822f,
+14.031f
+};
+
+////
+
+// "nomatter" timing game - players can say "stalker" at the right time to recover armor
+bool nomatter = false; //sound is playing
+bool nomatter_timing = false; //timing for healing
+array<bool> nomatter_fail(g_Engine.maxClients, false); //tracking if player has already failed timing game
+int nomatter_pitch; //tracking pitch of nishiki sound
+
+const array<float> nomatter_timings =
+{
+2.206f,
+5.061f,
+7.917f,
+10.774f
+};
+
+void nomatter_sweet(bool state)
+{
+nomatter_timing=state;
+}
+
+void nomatter_reset_fail()
+{
+nomatter_fail = array<bool>(g_Engine.maxClients, false);
+}
+
+void nomatter_set(bool state)
+{
+nomatter=state;
+}
 
 ////
 
@@ -1588,6 +1787,10 @@ void PluginInit()
      g_SoundListKeys.insertLast("soy");
   if (hammy_enable)
      g_SoundListKeys.insertLast("hammy");
+  if (lamour_enable)
+     g_SoundListKeys.insertLast("lamour");
+  if (stalker_enable)
+     g_SoundListKeys.insertLast("stalker");
   
   g_SoundListKeys.sortAsc();
   
@@ -1681,6 +1884,15 @@ void MapInit()
   if (hammy_enable)
      preacache_sound_array(g_soundfiles_hammy);
   
+  if (weartie_enable)
+     preacache_sound(g_soundfile_ties);
+  
+  if (lamour_enable)
+     preacache_sound_array(g_soundfiles_lamour);
+  
+  if (stalker_enable)
+     preacache_sound_array(g_soundfiles_stalker);
+  
   // preache hidden sound triggers
   preacache_sound(g_soundfile_secret);
   preacache_sound(g_soundfile_zombie_autotune);
@@ -1696,6 +1908,7 @@ void MapInit()
   player_soundevent = array<string>(g_Engine.maxClients, "");
   array_reload = array<bool>(g_Engine.maxClients, false);
   nishiki_fail = array<bool>(g_Engine.maxClients, false);
+  nomatter_fail = array<bool>(g_Engine.maxClients, false);
   arr_ChatTimes = array<float>(g_Engine.maxClients, 0.0f);
   //arr_ChatPlayTimes = array<float>(g_Engine.maxClients, 0.0f);
   
@@ -1710,6 +1923,8 @@ void MapInit()
   race_happening = false;
   nishiki = false;
   nishiki_timing = false;
+  nomatter = false;
+  nomatter_timing = false;
   payne_music = false;
   if (speed_disableGoto && speed_enable)
   {
@@ -1723,6 +1938,8 @@ void MapInit()
      g_Scheduler.SetInterval("CheckReloads", reload_frequency, g_Scheduler.REPEAT_INFINITE_TIMES);
    
   hammy_stage=0;
+  lamour_stage=0;
+  wearties=false;
   
 }
 
@@ -1754,9 +1971,9 @@ HookReturnCode ClientSay(SayParameters@ pParams)
     if (pPlayer is null or !pPlayer.IsConnected())
        return HOOK_CONTINUE;
       
-    const string soundArg = pArguments.Arg(0).ToLowercase();
+    string soundArg = pArguments.Arg(0).ToLowercase();
     
-    if ( ( g_SoundListKeys.find(soundArg)>=0 or soundArg=="secret") )
+    if ( ( g_SoundListKeys.find(soundArg)>=0 or soundArg=="secret" or soundArg=="random") )
     {
       
       // If player is not admin, don't let them trigger chatsounds. 
@@ -1775,28 +1992,6 @@ HookReturnCode ClientSay(SayParameters@ pParams)
       float t = g_EngineFuncs.Time();
       float d = t - arr_ChatTimes[pPlayer_index];
       arr_ChatTimes[pPlayer_index] = t;
-      bool interrupt_player = false; //exit hook prematurely if true (prevents any further scripting from activating)
-      
-      // If player is being spammy with event-like sounds, interrupt them
-      if (interrupt_dict.exists(soundArg) and (interrupt_spam or event_exclude))
-      {
-      
-         if (player_soundevent[pPlayer_index]!="")
-            interrupt_player=true;
-         else if (event_exclude)
-         {
-            if (IsEventPlaying())
-               interrupt_player=true;
-         }
-         
-         if (interrupt_player)
-         {
-           pParams.ShouldHide = true;
-           g_PlayerFuncs.ClientPrint(pPlayer, HUD_PRINTNOTIFY, "[chatsounds] Preventing audio spam.\n");
-           return HOOK_HANDLED;
-         }
-      
-      }
 
       if (d>=g_Delay)
       {
@@ -1811,6 +2006,7 @@ HookReturnCode ClientSay(SayParameters@ pParams)
             bool silent_mode = false; //hide chat message if true
             bool hide_sound = false; //do not play sound if true
             bool hide_sprite = false; // hide sprite above player model if true
+            bool interrupt_player = false; //exit hook prematurely if true (prevents any further scripting from activating)
             float t_delay = 0.0f; //time delay between sound trigger activation and sound playing in seconds
             
             // Check for additional arguments: pitch, silent mode, time delay.
@@ -1821,14 +2017,20 @@ HookReturnCode ClientSay(SayParameters@ pParams)
               const string pitchArg = pArguments.Arg(1).ToLowercase();
               
               if (pitchArg=="s" && enable_silent)
+              {
                  silent_mode = true;
+                 hide_sprite=true;
+              }
               else
               {
                   
                   if (numArgs > 2)
                   {
                       if (pArguments.Arg(2).ToLowercase()=="s" && enable_silent)
+                      {
                          silent_mode = true;
+                         hide_sprite=true;
+                      }
                       
                       if (numArgs > 3 && delay_control)
                       {
@@ -1875,6 +2077,41 @@ HookReturnCode ClientSay(SayParameters@ pParams)
                  }
               }
             }
+            
+            if (soundArg=="random")
+            {
+               soundArg = get_array_random_snd_file(g_SoundListKeys);
+               if (!silent_mode)
+               {
+                  string full_msg = pParams.GetCommand();
+                  full_msg = full_msg.Replace("random", soundArg);
+                  print_all_chat(string(pPlayer.pev.netname) + ": " + full_msg);
+               }
+               silent_mode = true;
+            }
+            
+            // If player is being spammy with event-like sounds, interrupt them
+            if (interrupt_dict.exists(soundArg) and (interrupt_spam or event_exclude))
+            {
+            
+               if (player_soundevent[pPlayer_index]!="")
+                  interrupt_player=true;
+               else if (event_exclude)
+               {
+                  if (IsEventPlaying())
+                     interrupt_player=true;
+               }
+
+            }
+            
+            if (interrupt_player)
+            {
+              pParams.ShouldHide = true;
+              g_PlayerFuncs.ClientPrint(pPlayer, HUD_PRINTNOTIFY, "[chatsounds] Preventing audio spam.\n");
+              return HOOK_HANDLED;
+            }
+            
+            
             
             // Determine snd_file
             if (soundArg=="desperate" && desperate_enable)
@@ -1974,6 +2211,21 @@ HookReturnCode ClientSay(SayParameters@ pParams)
                else
                   snd_file="";
             }
+            else if (soundArg=="lamour" && lamour_enable)
+            {
+            
+               if (!is_event_overlapping("lamour"))
+               {
+                   snd_file = g_soundfiles_lamour[lamour_stage];
+                   lamour_stage +=1;
+                   if (lamour_stage>2)
+                      lamour_stage=0;
+               }
+               else
+                  snd_file="";
+            }
+            else if (soundArg=="stalker" && stalker_enable)
+               snd_file = get_array_random_snd_file(g_soundfiles_stalker);
             else
                snd_file = string(g_SoundList[soundArg]);
              
@@ -2027,17 +2279,13 @@ HookReturnCode ClientSay(SayParameters@ pParams)
                     if (pPlayer.IsAlive())
                     {
                         
-                        float points = 40.0f / ( 100 / float(pitch) )**2;
-                        
+                        float points = 20.0f / ( 100 / float(pitch) )**2;
                         if (pPlayer.pev.health<100.0f)
                         {
                             float d_health = 100.0f-pPlayer.pev.health;
                             pPlayer.TakeHealth(points,0,100.0f);
                             points -= d_health;
                         }
-                        
-                        if (pPlayer.pev.armorvalue<100.0f and points>0)
-                            pPlayer.TakeArmor(points/float(2),0,100.0f);
                     }
                 
                }
@@ -2055,11 +2303,73 @@ HookReturnCode ClientSay(SayParameters@ pParams)
                }
                
             }
+            else if (soundArg=="nomatter" && nomatter_enable && stalker_enable)
+            {
+                if (nomatter)
+                  interrupt_player=true;
+                else
+                {
+                    nomatter_fail = array<bool>(g_Engine.maxClients, false);
+                    nomatter=true;
+                    nomatter_pitch = pitch;
+                    nomatter_timing=false;
+                    float t_randomdelay = Math.RandomFloat(0.0f,1.0f);
+                    float t_nomatter_hold_before = 0.15f*(100/float(pitch));
+                    float t_nomatter_hold_after = 0.2f*(100/float(pitch));
+                    t_delay += t_randomdelay;
+                    float curr_timing;
+                    float t_midpoint;
+                    
+                    for (uint i = 0; i < nomatter_timings.length(); i++)
+                    {
+                       curr_timing = nomatter_timings[i]*(100/float(pitch));
+                       g_Scheduler.SetTimeout("nomatter_sweet",t_delay+curr_timing-t_nomatter_hold_before,true);
+                       g_Scheduler.SetTimeout("nomatter_sweet",t_delay+curr_timing+t_nomatter_hold_after,false);
+                       
+                       if (i<(nomatter_timings.length()-1))
+                       {
+                          t_midpoint = (nomatter_timings[i] + nomatter_timings[i+1])/(2.0f)*(100/float(pitch));
+                          g_Scheduler.SetTimeout("nomatter_reset_fail",t_delay+t_midpoint);
+                       
+                       }
+                       
+                       
+                    }
+                    g_Scheduler.SetTimeout("nomatter_set",t_delay+curr_timing+t_nomatter_hold_after+0.3f,false);
+                }
+               
+            }
+            else if (soundArg=="stalker" and t_delay==0.0f && nomatter_enable && stalker_enable)
+            {
+               if (nomatter_timing and !nomatter_fail[pPlayer_index])
+               {
+                    pitch = nomatter_pitch;
+                    if (pPlayer.IsAlive())
+                    {
+                        float points = 20.0f / ( 100 / float(pitch) )**2;
+                        if (pPlayer.pev.armorvalue<100.0f)
+                            pPlayer.TakeArmor(points,0,100.0f);
+                    }
+                
+               }
+               else if (nomatter)
+               {
+                   if (!nomatter_fail[pPlayer_index])
+                   {
+                      g_PlayerFuncs.ClientPrint(pPlayer, HUD_PRINTNOTIFY, "Missed it!\n");
+                      nomatter_fail[pPlayer_index] = true;
+                   }
+                   interrupt_player = true;
+               }
+               
+            }
             else if ( (soundArg == 'medic' || soundArg == 'meedic') and t_delay==0.0f)
             {
               pPlayer.ShowOverheadSprite('sprites/saveme.spr', 51.0f, 5.0f);
               hide_sprite=true;
             }
+            
+            
             
             if (interrupt_player)
             {
@@ -2091,6 +2401,36 @@ HookReturnCode ClientSay(SayParameters@ pParams)
         	     g_Scheduler.SetTimeout("play_unatco_music",t_delay,@pPlayer);
         	     g_Scheduler.SetTimeout("end_unatco_music",t_delay+unatco_music_duration);
     	      }
+        	
+        	}
+        	else if (soundArg=="weartie" && weartie_enable && !wearties)
+        	{
+        	   // Check if more than one player is playing wearties sound
+        	   bool ties_overlapping=false;
+        	   for (uint i = 0; i < arr_active_players.length(); i++)
+               {   
+                   uint temp_index = arr_active_players[i]-1;
+                   if (player_soundevent[temp_index]==soundArg && pPlayer_index!=temp_index)
+                   {
+                     ties_overlapping=true;
+                     break;
+                   }
+               }
+        	   
+               // Make everyone in vicinity chant ridiculous ties
+        	   if (ties_overlapping)
+        	   {
+        	      wearties=true;
+        	      wearties_pitch = pitch;
+        	      float chant_time = t_delay + 3.4f*(100/float(pitch));
+        	      for (uint i = 0; i < 3; i++)
+                  {   
+                     g_Scheduler.SetTimeout("wearties_chant",chant_time+Math.RandomFloat(-0.05f,0.1f)*(100/float(pitch)),@pPlayer);
+                     chant_time += ties_duration*(100/float(pitch));
+                  }
+                  g_Scheduler.SetTimeout("wearties_set",chant_time,false);
+        	   
+        	   }
         	
         	}
         	// Players near pPlayer should join in the color cycle.
@@ -2151,7 +2491,7 @@ HookReturnCode ClientSay(SayParameters@ pParams)
         	}
         	
         	// Players near pPlayer should join in the color cycle.
-        	else if (soundArg == 'hammy' && hammy_enable)
+        	else if (soundArg == 'hammy' && hammy_enable && !interrupt_player)
         	{
         	
         	   float hammy_distance = 1000.0f;
@@ -2225,6 +2565,103 @@ HookReturnCode ClientSay(SayParameters@ pParams)
      	       {
      	         @pPlayer_hammy = hammy_pPlayers[i];
      	         g_Scheduler.SetTimeout("TogglePlayerGlow", t_delay+curr_delay+0.22f*(100/float(pitch)), @pPlayer_hammy, false);
+     	       }
+        	
+        	}
+        	
+        	
+        	// Players near pPlayer should join in the color cycle.
+        	else if (soundArg == 'lamour' && lamour_enable && !interrupt_player)
+        	{
+        	
+        	   float lamour_distance = 1000.0f;
+        	   array<float> lamour_timings;
+        	   CBasePlayer@ pPlayer_lamour;
+        	   array<Vector> colorgroup;
+        	   Vector color;
+        	   float curr_delay=0.0f;
+        	   uint i_color = 0;
+        	   bool randomize_all = false;
+        	   bool colors_basic = true;
+        	   float t_total;
+        	   
+        	   if (lamour_stage==1) // stage  0
+        	   {
+            	   lamour_timings=lamour1_timings;
+            	   t_total=6.5f*(100/float(pitch));
+        	   }
+        	   else if (lamour_stage==2) // stage 1
+        	   {
+            	   lamour_timings=lamour2_timings;
+            	   colors_basic = false;
+            	   t_total=6.8f*(100/float(pitch));
+        	   }
+        	   else // stage 2
+        	   {
+            	   lamour_timings=lamour3_timings;
+            	   randomize_all = true;
+            	   colors_basic = false;
+            	   t_total=14.3f*(100/float(pitch));
+        	   }
+        	      
+        	   // identify players within lamour_distance
+        	   array<CBasePlayer@> lamour_pPlayers;
+        	   lamour_pPlayers.resize(0);
+        	   for (uint i = 0; i < arr_active_players.length(); i++)
+        	   {
+        	      @pPlayer_lamour = g_PlayerFuncs.FindPlayerByIndex(arr_active_players[i]);  
+        	      Vector pPlayer_lamour_origin = pPlayer_lamour.GetOrigin();
+                  float current_distance = pPlayer_origin.opSub(pPlayer_lamour_origin).Length();
+                  if (current_distance <= lamour_distance)
+                     lamour_pPlayers.insertLast(pPlayer_lamour);
+        	   }
+        	   
+        	   
+        	   // apply colors at specified times
+        	   bool first_group = true; //always cycle between groups so that color changes are guaranteed
+        	   for (uint i_timing = 0; i_timing < lamour_timings.length(); i_timing++)
+        	   {
+        	      
+        	      curr_delay = lamour_timings[i_timing]*(100/float(pitch));
+        	      
+        	      if (colors_basic)
+    	          {
+    	             if (first_group)
+    	                colorgroup=g_hammy_colors_group1_1;
+	                 else
+	                    colorgroup=g_hammy_colors_group1_2;
+    	          }
+    	          else
+    	          {
+    	             if (first_group)
+    	                colorgroup=g_hammy_colors_group2_1;
+	                 else
+	                    colorgroup=g_hammy_colors_group2_2;
+    	          }
+        	      
+        	      if (!randomize_all)
+      	            i_color = Math.RandomLong(0,colorgroup.length()-1);
+        	      
+        	      for (uint i = 0; i < lamour_pPlayers.length(); i++)
+        	      {
+        	       
+        	        @pPlayer_lamour = lamour_pPlayers[i];
+        	        if (randomize_all)
+        	           i_color = Math.RandomLong(0,colorgroup.length()-1);
+        	        color = colorgroup[i_color];
+        	        g_Scheduler.SetTimeout("SetPlayerGlowColor", t_delay+curr_delay, @pPlayer_lamour, color);
+        	      
+        	      }
+        	      
+        	      first_group = !first_group;
+        	   
+        	   }
+        	   
+        	   // clean up at the end
+        	   for (uint i = 0; i < lamour_pPlayers.length(); i++)
+     	       {
+     	         @pPlayer_lamour = lamour_pPlayers[i];
+     	         g_Scheduler.SetTimeout("TogglePlayerGlow", t_delay+t_total, @pPlayer_lamour, false);
      	       }
         	
         	}
@@ -2479,6 +2916,8 @@ HookReturnCode ClientSay(SayParameters@ pParams)
         	   }
     	    
     	    }
+    	    else if (soundArg == "basedcringe")
+               g_Scheduler.SetTimeout("gib_player",t_delay+64.0f*(100/float(pitch)),@pPlayer);
     	    else if (soundArg == "wtfboom" && wtfboom_enable)
         	{
         	   
@@ -2492,7 +2931,7 @@ HookReturnCode ClientSay(SayParameters@ pParams)
     	    
     	    }
         	
-        	if (silent_mode or hide_sound or interrupt_player)
+        	if (hide_sound or interrupt_player)
         	   hide_sprite = true;
         	
         	if (interrupt_dict.exists(soundArg))

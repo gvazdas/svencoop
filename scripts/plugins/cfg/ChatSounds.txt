@@ -631,3 +631,14 @@ fool chat/up11/fool.wav
 sure chat/up11/sure.wav
 100% chat/up11/black/100percent.wav
 metoo chat/up11/black/metoo.wav
+
+wellshit chat/gman/wellshit.wav
+slay chat/gman/slay.wav
+
+crab chat/up12/crab.wav
+table chat/up12/table.wav
+nicemodel chat/up12/nicemodel.wav
+rizzless chat/up12/rizzless.wav
+basedcringe chat/up12/basedcringe.wav
+weartie chat/up12/weartie.wav
+nomatter chat/up12/nomatter.wav
