@@ -642,3 +642,73 @@ rizzless chat/up12/rizzless.wav
 basedcringe chat/up12/basedcringe.wav
 weartie chat/up12/weartie.wav
 nomatter chat/up12/nomatter.wav
+
+bogies hgrunt/bogies.wav
+bogies! hgrunt/bogies!.wav
+
+that hgrunt/that.wav
+that! hgrunt/that!.wav
+
+heavy hgrunt/heavy.wav
+heavy! hgrunt/heavy!.wav
+
+freeman hgrunt/freeman.wav
+freeman! hgrunt/freeman!.wav
+
+go! hgrunt/go.wav
+go!! hgrunt/go!.wav
+
+your hgrunt/your.wav
+your! hgrunt/your!.wav
+
+you hgrunt/you.wav
+you! hgrunt/you!.wav
+
+my hgrunt/my.wav
+my! hgrunt/my!.wav
+
+is hgrunt/is.wav
+is! hgrunt/is!.wav
+
+i! hgrunt/i.wav
+i!! hgrunt/i!.wav
+
+am hgrunt/am.wav
+am! hgrunt/am!.wav
+
+got hgrunt/got.wav
+got! hgrunt/got!.wav
+
+god hgrunt/god.wav
+god! hgrunt/god!.wav
+
+damn!! hgrunt/damn.wav
+damn!!! hgrunt/damn!.wav
+
+mother hgrunt/mother!.wav
+uhh hgrunt/uhh.wav
+
+some hgrunt/some.wav
+some! hgrunt/some!.wav
+
+alien hgrunt/alien.wav
+alien! hgrunt/alien!.wav
+
+are hgrunt/are.wav
+are! hgrunt/are!.wav
+
+this hgrunt/this.wav
+this! hgrunt/this!.wav
+
+tight hgrunt/tight.wav
+tight! hgrunt/tight!.wav
+
+get hgrunt/get!.wav
+
+we hgrunt/we.wav
+we! hgrunt/we!.wav
+
+weapons hgrunt/weapons.wav
+weapons! hgrunt/weapons!.wav
+
+run chat/up12/run.wav
