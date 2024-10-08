@@ -2,7 +2,7 @@
 //incognico wrote the readsounds and listsounds functions
 
 // (gvazdas) Credits:
-// Thanks to Vent Xekart, zyiks, ngh, mumblzz, ShaunOfTheLive and Keyboard Argonian for testing and help
+// Thanks to Vent Xekart, zyiks, IronBar, Robotnik, AriesToffle, ngh, mumblzz, ShaunOfTheLive, Keyboard Argonian, Chance for testing and help
 // Thanks to everyone in the Sven Co-Op Developers Discord for helping with goldsource non-sense
 // Extreme thanks to Reagy and IronBar for hosting our Sven Co-Op events
 // Created for the Knockout.chat community
@@ -10,7 +10,6 @@
 // TO DO LIST
 // 1. Allow players to mute other players: .csmute - specify part of nickname, or steamid. Internally it should always lock to steamid.
 // 2. Allow players to reduce frequency of playing chatsounds: .cscooldown.
-// Check transmitting players arr_ChatPlayTimes and see if that exceeds the .cscooldown value
 
 // .cs
 
@@ -28,7 +27,7 @@ void print_cs(const CCommand@ pArgs, CBasePlayer@ pPlayer)
     g_PlayerFuncs.SayText(pPlayer, "[chatsounds] To hide chatsounds text, add ' s'. For example, hello s or hello ? s" + "\n");
     g_PlayerFuncs.SayText(pPlayer, "[chatsounds] Full syntax: trigger pitch s delay" + "\n");
     g_PlayerFuncs.SayText(pPlayer, "[chatsounds] Other commands: .listsounds .csvolume" + "\n");
-    g_PlayerFuncs.ClientPrint(pPlayer, HUD_PRINTCONSOLE, "[chatsounds] version 1.04\n");
+    g_PlayerFuncs.ClientPrint(pPlayer, HUD_PRINTCONSOLE, "[chatsounds] version 1.07\n");
     g_PlayerFuncs.ClientPrint(pPlayer, HUD_PRINTCONSOLE, "For the latest version go to https://github.com/gvazdas/svencoop\n");
     
     //CBasePlayer@ pBot = g_PlayerFuncs.CreateBot("Dipshit");
@@ -42,21 +41,31 @@ void print_cs(const CCommand@ pArgs, CBasePlayer@ pPlayer)
     
 }
 
+// basedcringe: when removing event, check if player should be gibbed based on what the current event array value is
+
 //// 
 
-// General variables - modify as you wish.
-
+// General variables - modify as you wish
 const string g_SpriteName = 'sprites/chat/funny.spr'; // set to empty string if you want no sprite
 const string g_SoundFile = "scripts/plugins/cfg/ChatSounds.txt"; // .txt file containing triggers and their sound file paths
-const float g_Delay = 0.1f; //minimum time in seconds between chat sound triggers for the same player
 const bool admin_only = false; //if true, allow only admins to trigger chat sounds
 const bool pitch_control = true; // false to disable chatsounds pitch control
 const bool delay_control = true; // false to disable chatsounds delay control
-const bool enable_silent = true; // true allows players to hide chatsounds text in chat by adding "s" to trigger
-const bool interrupt_spam = true; // interrupt event type sounds if played more frequently by a player than set in interrupt_dict
-const bool event_no_overlap = true; // each sound in triggers_no_overlap can be played only by one person at any time in the whole server.
-const bool event_exclude = false; // if true, only one event type sound can be played at any time in the whole server. (see interrupt_dict)
+const bool enable_silent = true; // true allows players to hide chatsounds text in chat by adding "s" after trigger
+const bool trigger_explicit = true; // prevents players from accidentally triggering chatsounds if their chat messages are long enough.
 
+// Anti-spam and audio de-clutter tools - modify as you wish
+const float g_Delay = 0.5f; //minimum time in seconds between chat sounds for each player
+const bool ignore_delay = false; // ignore g_Delay allowing players to spam non-event sounds infinitely. cannot recommend for public servers.
+const bool delay_shared = false; // extreme anti-spam measure; forces all players to run on the same g_Delay timer
+const bool interrupt_event_spam = true; // interrupt event sounds emitted by player if their last event hasn't ended
+const bool event_no_overlap = true; // each sound in triggers_no_overlap can be played only by one person at any time in the whole server.
+const bool event_exclusive = false; // if true, only one event type sound can be played at any time in the whole server. (see interrupt_dict)
+const bool event_no_other_sounds = true; //if true, players emitting an event sound cannot emit any sounds until the event is over.
+const bool player_die_interrupt = false; // if true, when player dies, forces sounds in CHAN_STATIC and CHAN_STREAM to cut off
+const bool chatsounds_only_alive = false; // if true, only alive players can emit chat sounds
+
+// Extra fun features - modify as you wish
 const bool spawnsounds_enable = true; // false to disable spawn sounds when player spawns with a glock
 const bool nishiki_enable = true; // false to disable "nishiki" timing game
 const bool duke_enable = true; // false to disable "duke"
@@ -84,10 +93,12 @@ const bool bug_enable = true; // false to disable "bug"
 const bool imded_enable = true; // false to disable "imded"
 const bool gman_enable = true; // false to disable "gman"
 const bool hammy_enable = true; // false to disable "hammy"
-const bool stalker_enable = true; // false to disable "stalker"
+const bool stalker_enable = true; // false to disable "stalker" and "nomatter" timing game
 const bool nomatter_enable = true; // false to disable "nomatter" timing game
 const bool lamour_enable = true; // false to disable "lamour"
-const bool weartie_enable = true; // false to disable "wearties"
+const bool weartie_enable = true; // false to disable "weartie"
+const bool mymovie_enable = true; // false to disable "mymovie"
+const bool doot_enable = true; // false to disable "doot"
 
 /// 
 
@@ -95,9 +106,9 @@ const bool weartie_enable = true; // false to disable "wearties"
 // 1) These sounds will play in CHAN_STREAM instead of CHAN_AUTO.
 // 2) They are less likely to get cut off.
 // 3) They cannot overlap for the same sound source.
+// 4) Useful if any extra scripting is involved to make sure things are not cut off and disjointed.
 const dictionary interrupt_dict =
 {
-{'gman',0.1f},
 {'petition',1.0f},
 {'bimbos',0.5f},
 {'payne',1.0f},
@@ -147,7 +158,7 @@ const array<string> triggers_no_overlap =
 "standing", "wtfboom", "careless", "speed", "funky", "vengabus",
 "iamthestorm", "war!", "kickgum", "bandit", "scha", "godhand",
 "wombo", "duke2", "rules", "damedane", "isdead", "onlything",
-"iamthestorm", "tbc", "hero", "hammy", "nomatter", "basedcringe", "lamour", "caramel"
+"iamthestorm", "tbc", "hero", "hammy", "nomatter", "basedcringe", "lamour", "caramel", "weartie"
 };
 
 // tracking which sound event player is currently playing
@@ -164,8 +175,13 @@ void pPlayer_event_update(CBasePlayer@ pPlayer,string trigger,bool state=true)
           player_soundevent[pPlayer.entindex()-1] = trigger;
        else
        {
+          
           if (player_soundevent[pPlayer.entindex()-1]==trigger)
+          {
+             if (trigger=="basedcringe" and !pPlayer.GetObserver().IsObserver() and pPlayer.IsAlive())
+                gib_player(pPlayer);
              player_soundevent[pPlayer.entindex()-1] = "";
+          }
        }
     }
 }
@@ -195,6 +211,35 @@ bool IsEventPlaying()
 }
 
 //// 
+
+// Anti-spam notification
+
+array<float> arr_antispam(g_Engine.maxClients,0.0f); //track anti-spam notifications
+const float antispam_cooldown = 10.0f;
+const string text_antispam = "[chatsounds] Preventing audio spam.\n";
+
+void pPlayer_print_antispam(CBasePlayer@ pPlayer)
+{
+    uint pPlayer_index = pPlayer.entindex()-1;
+    if (arr_volumes[pPlayer_index]<=0.0f)
+       return;
+    
+    float t = g_EngineFuncs.Time();
+    float d = t - arr_antispam[pPlayer_index];
+    
+    if (d>=antispam_cooldown)
+    {
+       g_PlayerFuncs.ClientPrint(pPlayer, HUD_PRINTNOTIFY, text_antispam);
+       arr_antispam[pPlayer_index] = t;
+    }
+}
+
+
+////
+
+const string g_soundfile_silence = "chat/up12/silence.wav";
+
+////
 
 // .cscooldown
 
@@ -278,6 +323,7 @@ void csmute(const CCommand@ pArgs, CBasePlayer@ pPlayer)
 
 CClientCommand g_CSVolume("csvolume", "Set volume (0-1) for all chat sounds", @csvolume_command);
 array<float> arr_volumes(g_Engine.maxClients, 1.0f);
+array<string> arr_netnames(g_Engine.maxClients,""); // for tracking whether to keep player csvolume or overwrite with 1
 bool all_volumes_1 = true; //optimization; tracking whether all connected players volume is set to 1 for playback optimization
 
 void csvolume_command(const CCommand@ pArgs)
@@ -828,7 +874,7 @@ void end_payne_music()
 
 // "speed" racing between players mini game
 
-// disables Goto script functionality during race if desired
+// disable Goto script during race
 // set to false if Goto.as is not being used.
 const bool speed_disableGoto = true;
 
@@ -1109,9 +1155,9 @@ Vector(0,0,255)
 // "wearties" reference to ridiculous ties video
 
 bool wearties = false;
-float ties_distance = 1000.0f;
+float ties_distance = 1500.0f;
 int wearties_pitch;
-const float ties_duration = 1.7f;
+const float ties_duration = 1.9f;
 const string g_soundfile_ties = "chat/up12/ridiculousties.wav";
 
 void wearties_set(bool state)
@@ -1514,7 +1560,6 @@ g_EntityFuncs.CreateExplosion(pPlayer.GetOrigin(),Vector(0,0,0),pPlayer.edict(),
 ////
 
 // standing - MGS meme
-bool standing_playing = false;
 
 void weapon_swap(CBasePlayer@ pPlayer, CBasePlayerWeapon@ pPlayer_crowbar)
 {
@@ -1625,7 +1670,7 @@ void CheckReloads()
                       snd_file = g_soundfiles_reload[uint(Math.RandomLong(0,g_soundfiles_reload.length()-1))];
                       
                   t_delay = Math.RandomFloat(0.0f,0.5f);
-                  g_Scheduler.SetTimeout("play_sound_stream",t_delay,@pPlayer,snd_file,1.0f,0.3f,100,true,true);
+                  g_Scheduler.SetTimeout("play_sound_stream",t_delay,@pPlayer,snd_file,1.0f,0.3f,100,true,true,true);
               }
            
               set_pPlayer_reload(pPlayer,true);
@@ -1641,9 +1686,127 @@ void CheckReloads()
 
 ////
 
+// mymovie sprites
+
+const array<string> g_sprites_skull =
+{
+"sprites/chat/mymovie1.spr",
+"sprites/chat/mymovie2.spr",
+"sprites/chat/mymovie3.spr"
+};
+
+const array<float> g_skull_scales =
+{
+0.25f,
+0.25f,
+0.2f
+};
+
+void create_skull_pPlayer(CBasePlayer@ pPlayer, int pitch=100)
+{
+    
+    if (pPlayer is null)
+        return;
+    
+    if (!pPlayer.GetObserver().IsObserver() && pPlayer.IsAlive() && pPlayer.IsConnected())
+    {
+        uint i_skull = uint(Math.RandomLong(0,g_sprites_skull.length()-1));
+        string sprite_file = g_sprites_skull[i_skull];
+        float skull_scale = g_skull_scales[i_skull];
+        Vector sprite_location = pPlayer.GetOrigin();
+        sprite_location.z += 70.0f;
+        CSprite@ skull = g_EntityFuncs.CreateSprite(sprite_file,sprite_location,false,0.0f);
+        skull.pev.rendercolor = Vector(255,255,255);
+        skull.pev.renderamt = 255.0f; 
+        skull.pev.rendermode = 0;
+        float random_multiplier = Math.RandomFloat(450.0f,2500.0f)/(100.0f/float(pitch));
+        Vector skull_velocity = pPlayer.GetAutoaimVector(0.0f).opMul(random_multiplier);
+        skull.pev.velocity = skull_velocity;
+        skull.SetScale(skull_scale);
+        g_Scheduler.SetTimeout("sprite_delete",5.0f,@skull);
+    }
+
+}
+
+void sprite_delete(CSprite@ skull)
+{
+    if (skull !is null)
+    {
+        skull.SUB_Remove();
+    }
+}
+
+////
+
+// doot
+
+const string g_doot_sprite = "sprites/chat/doot.spr";
+
+void doot_pPlayer(CBasePlayer@ pPlayer)
+{
+    
+    if (pPlayer is null)
+        return;
+    
+    if (!pPlayer.GetObserver().IsObserver() && pPlayer.IsAlive() && pPlayer.IsConnected())
+    {
+        Vector sprite_location = pPlayer.GetOrigin();
+        sprite_location.z += 51.0f;
+        CSprite@ skull = g_EntityFuncs.CreateSprite(g_doot_sprite,sprite_location,false,0.0f);
+        //skull.pev.movetype = MOVETYPE_FOLLOW;
+        skull.pev.rendercolor = Vector(255,255,255);
+        skull.pev.renderamt = 255.0f; 
+        skull.pev.rendermode = 0;
+        skull.KeyValue( "vp_type", "VP_TYPE::VP_ORIENTATED" );
+        skull.pev.angles = Vector(0.0f,0.0f,Math.RandomFloat(-180.0f,180.0f));
+        //@skull.pev.aiment = pPlayer.edict();
+        //@skull.pev.owner = pPlayer.edict();
+        //skull.SetAttachment(pPlayer.edict(),0);
+        //float random_multiplier = Math.RandomFloat(500.0f,3000.0f)/(100.0f/float(pitch));
+        //Vector skull_velocity = pPlayer.GetAutoaimVector(0.0f).opMul(random_multiplier);
+        //skull.pev.velocity = skull_velocity;
+        skull.SetScale(0.2f);
+        g_Scheduler.SetTimeout("sprite_delete",3.0f,@skull);
+    }
+
+}
+
+////
+
 // Important variables - don't mess with these.
 
-array<float> arr_ChatTimes(g_Engine.maxClients, 0.0f); //track chat trigger times of players
+//track chat trigger times of players
+array<float> arr_ChatTimes(g_Engine.maxClients,0.0f);
+
+//track sound emission times
+array<float> arr_SoundTimes(g_Engine.maxClients,0.0f);
+
+float get_ChatTime(uint pPlayer_index)
+{
+    return arr_ChatTimes[pPlayer_index];
+}
+
+void update_ChatTime(uint pPlayer_index=0,float t=0.0f, bool update_all=false)
+{
+   if (update_all)
+      arr_ChatTimes = array<float>(g_Engine.maxClients,t);
+   else
+      arr_ChatTimes[pPlayer_index]=t;
+}
+
+float get_SoundTime(uint pPlayer_index)
+{
+    return arr_SoundTimes[pPlayer_index];
+}
+
+void update_SoundTime(uint pPlayer_index=0,float t=0.0f, bool update_all=false)
+{
+   if (update_all)
+      arr_SoundTimes = array<float>(g_Engine.maxClients,t);
+   else
+      arr_SoundTimes[pPlayer_index]=t;
+}
+
 array<bool> array_imded(g_Engine.maxClients, false); // "imded" triggers player suicide; tracking if player is dead
 dictionary g_SoundList; //keys are chat triggers; values are sound filepaths
 array<string> g_SoundListKeys; // array of chat triggers printed with .listsounds (does not include secret sounds)
@@ -1806,8 +1969,9 @@ void PluginInit()
 void MapInit()
 {
   
+  //g_soundfiles_precached.resize(0);
+  
   // Sound files must be precached at every map init.
-  g_soundfiles_precached.resize(0);
   
   // precache single-sound triggers.
   string temp_key;
@@ -1817,6 +1981,8 @@ void MapInit()
      if (g_SoundList.exists(temp_key))
         preacache_sound(string(g_SoundList[temp_key]));
   }
+  
+  preacache_sound(g_soundfile_silence);
   
   // precache multi-sound triggers
   if (duke_enable)
@@ -1904,18 +2070,34 @@ void MapInit()
   g_Game.PrecacheModel(g_SpriteName);
   }
   
+  if (mymovie_enable)
+  {
+      for (uint i = 0; i < g_sprites_skull.length(); ++i)
+      {
+         g_Game.PrecacheGeneric(g_sprites_skull[i]);
+         g_Game.PrecacheModel(g_sprites_skull[i]);
+      }
+  }
+  
+  if (doot_enable)
+  {
+      g_Game.PrecacheGeneric(g_doot_sprite);
+      g_Game.PrecacheModel(g_doot_sprite);
+  }
+  
   array_imded = array<bool>(g_Engine.maxClients, false);
   player_soundevent = array<string>(g_Engine.maxClients, "");
   array_reload = array<bool>(g_Engine.maxClients, false);
   nishiki_fail = array<bool>(g_Engine.maxClients, false);
   nomatter_fail = array<bool>(g_Engine.maxClients, false);
-  arr_ChatTimes = array<float>(g_Engine.maxClients, 0.0f);
-  //arr_ChatPlayTimes = array<float>(g_Engine.maxClients, 0.0f);
+  
+  update_ChatTime(0,0.0f,true); // reset all ChatTimes to 0
+  update_SoundTime(0,0.0f,true);
+  arr_antispam = array<float>(g_Engine.maxClients,0.0f);
   
   i_petition=0;
   desperate1_index=g_Engine.maxClients+1;
   spawn_cooldown=false;
-  standing_playing=false;
   
   end_unatco_music();
   
@@ -1961,13 +2143,18 @@ string get_array_random_snd_file(array<string> g_soundfiles)
 
 HookReturnCode ClientSay(SayParameters@ pParams)
 {
+  
+  // Ignore scripting if there's a space at the beginning of player say
+  const string full_msg = pParams.GetCommand();
+  if (full_msg.SubString(0,1)==" ")
+      return HOOK_CONTINUE;
+  
   const CCommand@ pArguments = pParams.GetArguments();
   const int numArgs = pArguments.ArgC();
 
-  if (numArgs > 0) {
+  if (numArgs > 0 and (!trigger_explicit or numArgs<=4)) {
     
     CBasePlayer@ pPlayer = pParams.GetPlayer();
-    
     if (pPlayer is null or !pPlayer.IsConnected())
        return HOOK_CONTINUE;
       
@@ -1990,10 +2177,31 @@ HookReturnCode ClientSay(SayParameters@ pParams)
          return HOOK_CONTINUE;
     
       float t = g_EngineFuncs.Time();
-      float d = t - arr_ChatTimes[pPlayer_index];
-      arr_ChatTimes[pPlayer_index] = t;
+      float d_chat = t - get_ChatTime(pPlayer_index); // last time player tried to trigger a chatsound
+      float d_sound = t - get_SoundTime(pPlayer_index); //last time player emitted a chat sound
+      update_ChatTime(pPlayer_index,t);
+      
+      bool chatsound_allow = ((d_chat>=g_Delay and d_sound>=g_Delay) or ignore_delay) and (!event_no_other_sounds or player_soundevent[pPlayer_index]=="");
+      
+      // check exceptions for timing games
+      if (!chatsound_allow)
+      {
+          if (imded_enable and soundArg=="imded")
+             chatsound_allow=true;
+          if (nishiki_enable and nishiki and soundArg=="pussy")
+             chatsound_allow=true;
+          else if (stalker_enable and nomatter_enable and nomatter and soundArg=="stalker")
+             chatsound_allow=true;
+          else if (weartie_enable and soundArg=="weartie" and !wearties and player_soundevent[pPlayer_index]!="weartie")
+             chatsound_allow=true;
+      }
+      
+      // check if player is alive and whether they should emit the sound
+      if (chatsound_allow and chatsounds_only_alive)
+          if (pPlayer is null or !pPlayer.IsConnected() or pPlayer.GetObserver().IsObserver() or !pPlayer.IsAlive())
+             chatsound_allow=false;
 
-      if (d>=g_Delay)
+      if (chatsound_allow)
       {
             
             // Default chatsounds parameters
@@ -2001,12 +2209,13 @@ HookReturnCode ClientSay(SayParameters@ pParams)
             float volume = 1.0f;
             float attenuation = 0.4f;
             bool setOrigin=true;
-            SOUND_CHANNEL audio_channel = CHAN_AUTO;
+            SOUND_CHANNEL audio_channel = CHAN_AUTO; // CHAN_AUTO allows sounds to overlap
             string snd_file = "";
             bool silent_mode = false; //hide chat message if true
             bool hide_sound = false; //do not play sound if true
             bool hide_sprite = false; // hide sprite above player model if true
             bool interrupt_player = false; //exit hook prematurely if true (prevents any further scripting from activating)
+            bool anti_spam = true; // can the sound be interrupted by anti-spam features before it starts playing?
             float t_delay = 0.0f; //time delay between sound trigger activation and sound playing in seconds
             
             // Check for additional arguments: pitch, silent mode, time delay.
@@ -2036,11 +2245,21 @@ HookReturnCode ClientSay(SayParameters@ pParams)
                       {
                          const string delayArg = pArguments.Arg(3).ToLowercase();
                          t_delay = atof(delayArg);
-                         if (t_delay<0.0f or t_delay>10.0f)
+                         if (t_delay<0.0f or t_delay>5.0f)
                          {
                             t_delay = 0.0f;
-                            g_PlayerFuncs.ClientPrint(pPlayer, HUD_PRINTCENTER, "chatsounds delay must be between 0 and 10 s\n");
+                            g_PlayerFuncs.ClientPrint(pPlayer, HUD_PRINTCENTER, "chatsounds delay must be between 0 and 5 s\n");
                          }
+                         
+                         if (interrupt_dict.exists(soundArg))
+                         {
+                            if (t_delay!=0.0f)
+                            {
+                            t_delay=0.0f;
+                            g_PlayerFuncs.ClientPrint(pPlayer, HUD_PRINTCENTER, "delay disabled for this chatsound\n");
+                            }
+                         }
+                         
                          
                       }
                       
@@ -2078,37 +2297,66 @@ HookReturnCode ClientSay(SayParameters@ pParams)
               }
             }
             
+            // Try to move all this before chatsound_allow check
+            
+            bool print_extra = false;
+            string text_extra = "";
             if (soundArg=="random")
             {
                soundArg = get_array_random_snd_file(g_SoundListKeys);
+               
                if (!silent_mode)
                {
-                  string full_msg = pParams.GetCommand();
-                  full_msg = full_msg.Replace("random", soundArg);
-                  print_all_chat(string(pPlayer.pev.netname) + ": " + full_msg);
+                  text_extra = pParams.GetCommand();
+                  text_extra = text_extra.SubString("random".Length(), text_extra.Length()-"random".Length());
+                  text_extra = soundArg + text_extra;
+                  print_extra = true;
                }
                silent_mode = true;
             }
             
             // If player is being spammy with event-like sounds, interrupt them
-            if (interrupt_dict.exists(soundArg) and (interrupt_spam or event_exclude))
+            if (interrupt_dict.exists(soundArg))
             {
-            
-               if (player_soundevent[pPlayer_index]!="")
-                  interrupt_player=true;
-               else if (event_exclude)
+               
+               anti_spam = false;
+               
+               if (event_no_overlap and triggers_no_overlap.find(soundArg)>=0)
                {
-                  if (IsEventPlaying())
-                     interrupt_player=true;
+                   if (is_event_overlapping(soundArg))
+                      interrupt_player=true;
+               }
+               
+               if (interrupt_event_spam or event_exclusive)
+               {
+                   if (player_soundevent[pPlayer_index]!="")
+                      interrupt_player=true;
+                   else if (event_exclusive)
+                   {
+                      if (IsEventPlaying())
+                         interrupt_player=true;
+                   }
                }
 
             }
             
             if (interrupt_player)
             {
-              pParams.ShouldHide = true;
-              g_PlayerFuncs.ClientPrint(pPlayer, HUD_PRINTNOTIFY, "[chatsounds] Preventing audio spam.\n");
-              return HOOK_HANDLED;
+              
+              // Specify sounds here that will be muted but scripting will execute.
+              if (soundArg=="weartie" or soundArg=="standing")
+              {
+                  interrupt_player=false;
+                  if (soundArg=="standing")
+                      hide_sound=true;
+              }
+              else
+              {
+                  pPlayer_print_antispam(pPlayer);
+                  pParams.ShouldHide = true;
+                  return HOOK_HANDLED;
+              }
+
             }
             
             
@@ -2232,11 +2480,17 @@ HookReturnCode ClientSay(SayParameters@ pParams)
             if (snd_file.IsEmpty())
                return HOOK_CONTINUE;
             
+            
+            // Converts player "random" trigger to sound trigger being played
+            if (print_extra)
+               print_all_chat(string(pPlayer.pev.netname) + ": " + text_extra);
+            
             if (interrupt_dict.exists(soundArg))
                audio_channel = CHAN_STREAM;
             
             if (soundArg=="speed" && speed_enable)
             {
+               anti_spam=false;
                pitch = 100;
                attenuation = 0.0f;
                setOrigin = false;
@@ -2247,6 +2501,7 @@ HookReturnCode ClientSay(SayParameters@ pParams)
             }
             else if (soundArg=="nishiki" && nishiki_enable)
             {
+                anti_spam=false;
                 if (nishiki)
                   interrupt_player=true;
                 else
@@ -2272,6 +2527,7 @@ HookReturnCode ClientSay(SayParameters@ pParams)
             }
             else if (soundArg=="pussy" and t_delay==0.0f && nishiki_enable)
             {
+               anti_spam=false;
                if (nishiki_timing and !nishiki_fail[pPlayer_index])
                {
                     pitch = nishiki_pitch;
@@ -2305,6 +2561,7 @@ HookReturnCode ClientSay(SayParameters@ pParams)
             }
             else if (soundArg=="nomatter" && nomatter_enable && stalker_enable)
             {
+                anti_spam=false;
                 if (nomatter)
                   interrupt_player=true;
                 else
@@ -2341,6 +2598,7 @@ HookReturnCode ClientSay(SayParameters@ pParams)
             }
             else if (soundArg=="stalker" and t_delay==0.0f && nomatter_enable && stalker_enable)
             {
+               anti_spam=false;
                if (nomatter_timing and !nomatter_fail[pPlayer_index])
                {
                     pitch = nomatter_pitch;
@@ -2374,13 +2632,18 @@ HookReturnCode ClientSay(SayParameters@ pParams)
             if (interrupt_player)
             {
                pParams.ShouldHide = true;
+               pPlayer_print_antispam(pPlayer);
                return HOOK_HANDLED;
             }
+            
+            // Update all player ChatTimes to maximally reduce audio spam
+            if (delay_shared)
+               update_ChatTime(0,t,true);
             
             const Vector pPlayer_origin = pPlayer.GetOrigin();
         	if (soundArg=="payne" && payne_enable)
         	{
-        	  
+        	  anti_spam=false;
         	  audio_channel = CHAN_AUTO; // payne lines play in CHAN_AUTO; music in CHAN_STREAM
 
         	  if (!payne_music)
@@ -2403,32 +2666,39 @@ HookReturnCode ClientSay(SayParameters@ pParams)
     	      }
         	
         	}
-        	else if (soundArg=="weartie" && weartie_enable && !wearties)
+        	else if (soundArg=="weartie" && weartie_enable)
         	{
-        	   // Check if more than one player is playing wearties sound
-        	   bool ties_overlapping=false;
-        	   for (uint i = 0; i < arr_active_players.length(); i++)
-               {   
-                   uint temp_index = arr_active_players[i]-1;
-                   if (player_soundevent[temp_index]==soundArg && pPlayer_index!=temp_index)
-                   {
-                     ties_overlapping=true;
-                     break;
-                   }
-               }
-        	   
-               // Make everyone in vicinity chant ridiculous ties
-        	   if (ties_overlapping)
+        	   if (wearties)
+        	      interrupt_player=true;
+        	   else
         	   {
-        	      wearties=true;
-        	      wearties_pitch = pitch;
-        	      float chant_time = t_delay + 3.4f*(100/float(pitch));
-        	      for (uint i = 0; i < 3; i++)
-                  {   
-                     g_Scheduler.SetTimeout("wearties_chant",chant_time+Math.RandomFloat(-0.05f,0.1f)*(100/float(pitch)),@pPlayer);
-                     chant_time += ties_duration*(100/float(pitch));
-                  }
-                  g_Scheduler.SetTimeout("wearties_set",chant_time,false);
+        	       anti_spam=false;
+            	   // Check if more than one player is playing wearties sound
+            	   bool ties_overlapping=false;
+            	   for (uint i = 0; i < arr_active_players.length(); i++)
+                   {   
+                       uint temp_index = arr_active_players[i]-1;
+                       if (player_soundevent[temp_index]==soundArg && pPlayer_index!=temp_index)
+                       {
+                         ties_overlapping=true;
+                         break;
+                       }
+                   }
+            	   
+                   // Make everyone in vicinity chant ridiculous ties
+            	   if (ties_overlapping)
+            	   {
+            	      wearties=true;
+            	      wearties_pitch = pitch;
+            	      float chant_time = t_delay + 3.4f*(100/float(pitch));
+            	      for (uint i = 0; i < 3; i++)
+                      {   
+                         g_Scheduler.SetTimeout("wearties_chant",chant_time+Math.RandomFloat(-0.05f,0.1f)*(100/float(pitch)),@pPlayer);
+                         chant_time += ties_duration*(100/float(pitch));
+                      }
+                      g_Scheduler.SetTimeout("wearties_set",chant_time,false);
+            	   
+            	   }
         	   
         	   }
         	
@@ -2436,7 +2706,7 @@ HookReturnCode ClientSay(SayParameters@ pParams)
         	// Players near pPlayer should join in the color cycle.
         	else if (soundArg == 'caramel' && caramel_enable && !interrupt_player)
         	{
-        	
+        	   anti_spam=false;
         	   float t_caramel_delaystart = 1.3f*(100/float(pitch));
         	   float t_caramel =  1/float(2.75)*(100/float(pitch));
         	   float t_caramel_length = 15.0f*(100/float(pitch));
@@ -2493,7 +2763,7 @@ HookReturnCode ClientSay(SayParameters@ pParams)
         	// Players near pPlayer should join in the color cycle.
         	else if (soundArg == 'hammy' && hammy_enable && !interrupt_player)
         	{
-        	
+        	   anti_spam=false;
         	   float hammy_distance = 1000.0f;
         	   CBasePlayer@ pPlayer_hammy;
         	   array<Vector> colorgroup;
@@ -2573,7 +2843,7 @@ HookReturnCode ClientSay(SayParameters@ pParams)
         	// Players near pPlayer should join in the color cycle.
         	else if (soundArg == 'lamour' && lamour_enable && !interrupt_player)
         	{
-        	
+        	   anti_spam=false;
         	   float lamour_distance = 1000.0f;
         	   array<float> lamour_timings;
         	   CBasePlayer@ pPlayer_lamour;
@@ -2738,7 +3008,7 @@ HookReturnCode ClientSay(SayParameters@ pParams)
         	// Make player scale glitch for a split second
         	else if (soundArg=="bug" && bug_enable)
         	{
-        	
+        	   anti_spam=false;
         	   float bug_distance = 2000.0f;
         	   float t_bug_delay = 1.0f*(100/float(pitch));
         	   float t_bug_hold = 0.5f*(100/float(pitch));
@@ -2766,7 +3036,7 @@ HookReturnCode ClientSay(SayParameters@ pParams)
         	// If nearby player model is zombie, make them respond with hard hitting social commentary
         	else if (soundArg == 'zombie' and (g_EngineFuncs.GetInfoKeyBuffer(pPlayer.edict()).GetValue("model") != "zombie") )
         	{
-        	
+        	   anti_spam=false;
         	   float zombie_distance = 2000.0f;
         	   float t_zombie_delaystart = 1.0f + Math.RandomFloat(-0.2f,0.2f);
         	   t_zombie_delaystart *= (100/float(pitch));
@@ -2788,7 +3058,7 @@ HookReturnCode ClientSay(SayParameters@ pParams)
         	// Make nearby players emit scientist scream sounds
         	else if (soundArg == 'sciteam' && scream_enable)
         	{
-        	
+        	   anti_spam=false;
         	   float scream_distance = 3000.0f;
         	   float t_scream_delaystart;
         	   float t_scream_total = 2.5f * (100/float(pitch));
@@ -2852,6 +3122,23 @@ HookReturnCode ClientSay(SayParameters@ pParams)
         	
         	}
         	
+        	else if (soundArg == "mymovie" and mymovie_enable)
+        	{
+                t_delay += (2.45f)*100.0f/float(pitch);
+                float skull_delay = t_delay + Math.RandomFloat(-1.25f,1.25f)*100.0f/float(pitch);
+                g_Scheduler.SetTimeout("create_skull_pPlayer",skull_delay,@pPlayer,pitch);
+                anti_spam=false;
+                hide_sprite=true;
+                
+        	}
+        	
+        	else if (soundArg == "doot" and doot_enable)
+        	{
+                g_Scheduler.SetTimeout("doot_pPlayer",t_delay,@pPlayer);
+                hide_sprite=true;
+                anti_spam=false;
+        	}
+        	
         	// Make npcs around the player spin and emit pain sounds -- couldn't get this to work without breaking shit
         	//else if (soundArg == "funky" or soundArg == "speen" or soundArg == "speeen")
         	//{
@@ -2905,7 +3192,7 @@ HookReturnCode ClientSay(SayParameters@ pParams)
         	
         	else if (soundArg == "imded" && imded_enable)
         	{
-        	
+        	   anti_spam=false;
         	   if (array_imded[pPlayer_index])
                   interrupt_player=true;
         	   
@@ -2916,11 +3203,9 @@ HookReturnCode ClientSay(SayParameters@ pParams)
         	   }
     	    
     	    }
-    	    else if (soundArg == "basedcringe")
-               g_Scheduler.SetTimeout("gib_player",t_delay+64.0f*(100/float(pitch)),@pPlayer);
     	    else if (soundArg == "wtfboom" && wtfboom_enable)
         	{
-        	   
+        	   anti_spam=false;
         	   if (pPlayer.IsAlive())
         	   {
         	       float wtfboom_delay = 1.0f*(100/float(pitch));
@@ -2938,19 +3223,10 @@ HookReturnCode ClientSay(SayParameters@ pParams)
             {
                
                float hold_interrupt = float(interrupt_dict[soundArg])*(100.0/float(pitch));
-               
-               if (event_no_overlap and triggers_no_overlap.find(soundArg)>=0)
-               {
-                   if (is_event_overlapping(soundArg))
-                   {
-                      hide_sound=true;
-                      g_PlayerFuncs.ClientPrint(pPlayer, HUD_PRINTNOTIFY, "[chatsounds] Preventing audio spam.\n");
-                   }
-               }
-               
-               if (!interrupt_player)
+               if (!interrupt_player and !hide_sound)
                {
                pPlayer_event_update(pPlayer,soundArg,true);
+               anti_spam = false;
                g_Scheduler.SetTimeout("pPlayer_event_update",t_delay+hold_interrupt,@pPlayer,soundArg,false);
                }
             
@@ -2961,7 +3237,7 @@ HookReturnCode ClientSay(SayParameters@ pParams)
     	       if (t_delay>0.0f)
     	       {
     	         string fun_play_sound;
-    	         // this is godawful but SetTimeout does not accept enums.
+    	         // this is godawful but SetTimeout does not accept enums :<
     	         if (audio_channel == CHAN_AUTO)
     	            fun_play_sound = "play_sound_auto";
 	             else if (audio_channel == CHAN_STREAM)
@@ -2981,10 +3257,10 @@ HookReturnCode ClientSay(SayParameters@ pParams)
     	         else
     	            fun_play_sound = "play_sound_auto";
     	       
-    	         g_Scheduler.SetTimeout(fun_play_sound,t_delay,@pPlayer,snd_file,volume,attenuation,pitch,setOrigin,hide_sprite);
+    	         g_Scheduler.SetTimeout(fun_play_sound,t_delay,@pPlayer,snd_file,volume,attenuation,pitch,setOrigin,hide_sprite,anti_spam);
     	       }
     	       else
-                  play_sound(pPlayer,audio_channel,snd_file,volume,attenuation,pitch,setOrigin,hide_sprite);
+                  play_sound(pPlayer,audio_channel,snd_file,volume,attenuation,pitch,setOrigin,hide_sprite,anti_spam);
             }
             
             if (silent_mode or interrupt_player)
@@ -2993,16 +3269,16 @@ HookReturnCode ClientSay(SayParameters@ pParams)
       }
       else
       {
-         g_PlayerFuncs.ClientPrint(pPlayer, HUD_PRINTNOTIFY, "[chatsounds] Preventing audio spam.\n");
+         pPlayer_print_antispam(pPlayer);
          pParams.ShouldHide = true;
-         if (d<g_Delay)
-         {
-         string bees = string(Math.RandomLong(100000,999999));
-         bees = bees.SubString(0,3) + " " + bees.SubString(3,3);
-         g_PlayerFuncs.ClientPrint(pPlayer, HUD_PRINTCENTER, bees + " angry bees are coming for you");
-         g_PlayerFuncs.ShowMessage(pPlayer, "and they like jazz");
+         //if (d<g_Delay)
+         //{
+         //string bees = string(Math.RandomLong(100000,999999));
+         //bees = bees.SubString(0,3) + " " + bees.SubString(3,3);
+         //g_PlayerFuncs.ClientPrint(pPlayer, HUD_PRINTCENTER, bees + " angry bees are coming for you");
+         //g_PlayerFuncs.ShowMessage(pPlayer, "and they like jazz");
          //g_AdminControl.SlapPlayer(pPlayer,0.0,0);
-         }
+         //}
       }
     }
     else
@@ -3059,9 +3335,6 @@ HookReturnCode ClientDisconnect(CBasePlayer@ pPlayer)
    
   uint pPlayer_index = pPlayer.entindex()-1;
 
-  arr_volumes[pPlayer_index] = 1.0f;
-  //arr_cooldowns[pPlayer_index]=0.0f;
-  arr_ChatTimes[pPlayer_index] = 0.0f;
   UpdateActivePlayers();
   CheckAllVolumes();
   pPlayer_event_update(pPlayer,"");
@@ -3176,59 +3449,92 @@ void play_sound_scream(CBasePlayer@ pPlayer,int in_pitch)
 // play_sound variations with SOUND_CHANNEL fixed for SetTimeout calls to work
 // Code inspired by YandereDev
 
-void play_sound_auto(CBasePlayer@ pPlayer,string snd_file,float volume=1.0f,float attenuation=0.3f,int pitch=100,bool setOrigin=true,bool hide_sprite=false)
+void play_sound_auto(CBasePlayer@ pPlayer,string snd_file,float volume=1.0f,float attenuation=0.3f,
+int pitch=100,bool setOrigin=true,bool hide_sprite=false,bool anti_spam=false)
 {
-   play_sound(pPlayer,CHAN_AUTO,snd_file,volume,attenuation,pitch,setOrigin,hide_sprite);
+   play_sound(pPlayer,CHAN_AUTO,snd_file,volume,attenuation,pitch,setOrigin,hide_sprite,anti_spam);
 }
 
-void play_sound_weapon(CBasePlayer@ pPlayer,string snd_file,float volume=1.0f,float attenuation=0.3f,int pitch=100,bool setOrigin=true,bool hide_sprite=false)
+void play_sound_weapon(CBasePlayer@ pPlayer,string snd_file,float volume=1.0f,float attenuation=0.3f,
+int pitch=100,bool setOrigin=true,bool hide_sprite=false,bool anti_spam=false)
 {
-   play_sound(pPlayer,CHAN_WEAPON,snd_file,volume,attenuation,pitch,setOrigin,hide_sprite);
+   play_sound(pPlayer,CHAN_WEAPON,snd_file,volume,attenuation,pitch,setOrigin,hide_sprite,anti_spam);
 }
 
-void play_sound_voice(CBasePlayer@ pPlayer,string snd_file,float volume=1.0f,float attenuation=0.3f,int pitch=100,bool setOrigin=true,bool hide_sprite=false)
+void play_sound_voice(CBasePlayer@ pPlayer,string snd_file,float volume=1.0f,float attenuation=0.3f,
+int pitch=100,bool setOrigin=true,bool hide_sprite=false,bool anti_spam=false)
 {
-   play_sound(pPlayer,CHAN_VOICE,snd_file,volume,attenuation,pitch,setOrigin,hide_sprite);
+   play_sound(pPlayer,CHAN_VOICE,snd_file,volume,attenuation,pitch,setOrigin,hide_sprite,anti_spam);
 }
 
-void play_sound_item(CBasePlayer@ pPlayer,string snd_file,float volume=1.0f,float attenuation=0.3f,int pitch=100,bool setOrigin=true,bool hide_sprite=false)
+void play_sound_item(CBasePlayer@ pPlayer,string snd_file,float volume=1.0f,float attenuation=0.3f,
+int pitch=100,bool setOrigin=true,bool hide_sprite=false,bool anti_spam=false)
 {
-   play_sound(pPlayer,CHAN_ITEM,snd_file,volume,attenuation,pitch,setOrigin,hide_sprite);
+   play_sound(pPlayer,CHAN_ITEM,snd_file,volume,attenuation,pitch,setOrigin,hide_sprite,anti_spam);
 }
 
-void play_sound_body(CBasePlayer@ pPlayer,string snd_file,float volume=1.0f,float attenuation=0.3f,int pitch=100,bool setOrigin=true,bool hide_sprite=false)
+void play_sound_body(CBasePlayer@ pPlayer,string snd_file,float volume=1.0f,float attenuation=0.3f,
+int pitch=100,bool setOrigin=true,bool hide_sprite=false,bool anti_spam=false)
 {
-   play_sound(pPlayer,CHAN_BODY,snd_file,volume,attenuation,pitch,setOrigin,hide_sprite);
+   play_sound(pPlayer,CHAN_BODY,snd_file,volume,attenuation,pitch,setOrigin,hide_sprite,anti_spam);
 }
 
-void play_sound_stream(CBasePlayer@ pPlayer,string snd_file,float volume=1.0f,float attenuation=0.3f,int pitch=100,bool setOrigin=true,bool hide_sprite=false)
+void play_sound_stream(CBasePlayer@ pPlayer,string snd_file,float volume=1.0f,float attenuation=0.3f,
+int pitch=100,bool setOrigin=true,bool hide_sprite=false,bool anti_spam=false)
 {
-   play_sound(pPlayer,CHAN_STREAM,snd_file,volume,attenuation,pitch,setOrigin,hide_sprite);
+   play_sound(pPlayer,CHAN_STREAM,snd_file,volume,attenuation,pitch,setOrigin,hide_sprite,anti_spam);
 }
 
-void play_sound_static(CBasePlayer@ pPlayer,string snd_file,float volume=1.0f,float attenuation=0.3f,int pitch=100,bool setOrigin=true,bool hide_sprite=false)
+void play_sound_static(CBasePlayer@ pPlayer,string snd_file,float volume=1.0f,float attenuation=0.3f,
+int pitch=100,bool setOrigin=true,bool hide_sprite=false,bool anti_spam=false)
 {
-   play_sound(pPlayer,CHAN_STATIC,snd_file,volume,attenuation,pitch,setOrigin,hide_sprite);
+   play_sound(pPlayer,CHAN_STATIC,snd_file,volume,attenuation,pitch,setOrigin,hide_sprite,anti_spam);
 }
 
-void play_sound_music(CBasePlayer@ pPlayer,string snd_file,float volume=1.0f,float attenuation=0.3f,int pitch=100,bool setOrigin=true,bool hide_sprite=false)
+void play_sound_music(CBasePlayer@ pPlayer,string snd_file,float volume=1.0f,float attenuation=0.3f,
+int pitch=100,bool setOrigin=true,bool hide_sprite=false,bool anti_spam=false)
 {
-   play_sound(pPlayer,CHAN_MUSIC,snd_file,volume,attenuation,pitch,setOrigin,hide_sprite);
+   play_sound(pPlayer,CHAN_MUSIC,snd_file,volume,attenuation,pitch,setOrigin,hide_sprite,anti_spam);
 }
 
 //Emit sound from pPlayer; if setOrigin=true, sound will follow pPlayer position
 void play_sound(CBasePlayer@ pPlayer,SOUND_CHANNEL audio_channel,string snd_file,
                 float volume=1.0f,float attenuation=0.3f,int pitch=100,
-                bool setOrigin=true,bool hide_sprite=false)
+                bool setOrigin=true,bool hide_sprite=false, bool anti_spam=false)
 {
     
     if (volume<=0.0f)
        return;
     
     float t = g_EngineFuncs.Time();
-    //float d = t - arr_ChatPlayTimes[pPlayer.entindex()-1];
+    uint pPlayer_index = pPlayer.entindex()-1;
+    
+    // Check if sound should not play due to audio clutter
+    if (anti_spam)
+    {
+        if (chatsounds_only_alive)
+            if (pPlayer is null or !pPlayer.IsConnected() || pPlayer.GetObserver().IsObserver() || !pPlayer.IsAlive())
+               return;
+        
+        if (event_no_other_sounds)
+        {
+            if (player_soundevent[pPlayer_index]!="")
+               return;
+        }
+        
+        if (!ignore_delay)
+        {
+        
+           float d = t - get_SoundTime(pPlayer_index);
+           if (d<g_Delay)
+              return;
+        
+        }
+    }
+    
+    update_SoundTime(pPlayer_index,t);
 
-    if (all_volumes_1) //TO DO: check if steamID muted anywhere
+    if (all_volumes_1)
        g_SoundSystem.PlaySound(pPlayer.edict(),audio_channel,snd_file,volume,attenuation,0,pitch,0,setOrigin,pPlayer.pev.origin);
     else
     {
@@ -3241,9 +3547,7 @@ void play_sound(CBasePlayer@ pPlayer,SOUND_CHANNEL audio_channel,string snd_file
     		   continue;
     		
             float localVol = arr_volumes[arr_active_players[i]-1];
-            //float local_d = t - arr_ChatPlayTimes[plr_receiving.entindex()-1];
-            //float local_cooldown = arr_cooldowns[plr_receiving.entindex()-1];
-    		if (localVol > 0) //check if plr_receiving has muted pPlayer via steamID check
+    		if (localVol > 0) 
     	    {
     		   g_SoundSystem.PlaySound(pPlayer.edict(), audio_channel, snd_file,
                                        localVol*volume, attenuation, 0, pitch, plr_receiving.entindex(),setOrigin,pPlayer.pev.origin);
@@ -3255,18 +3559,13 @@ void play_sound(CBasePlayer@ pPlayer,SOUND_CHANNEL audio_channel,string snd_file
     
     if (!hide_sprite and !g_SpriteName.IsEmpty())
        pPlayer.ShowOverheadSprite(g_SpriteName, 56.0f, 2.25f);
-       
-    //arr_ChatPlayTimes[pPlayer.entindex()-1] = t;
-    //arr_ChatPlayTimes[pPlayer.entindex()-1] = g_EngineFuncs.Time();
     
 }
 
 HookReturnCode ClientPutInServer(CBasePlayer@ pPlayer)
 {
   uint pPlayer_index = pPlayer.entindex()-1;
-  arr_ChatTimes[pPlayer_index] = 0.0f;
   UpdateActivePlayers();
-  CheckAllVolumes();
   if (race_happening)
   {
      arr_race_distances[pPlayer_index] = 0.0f;
@@ -3276,6 +3575,13 @@ HookReturnCode ClientPutInServer(CBasePlayer@ pPlayer)
   array_reload[pPlayer_index] = false;
   pPlayer_setscale(pPlayer);
   pPlayer_event_update(pPlayer,"");
+  
+  // Check if a new player with a different name has taken up the player slot. If so, reset volume to 1.
+  if (arr_netnames[pPlayer_index] != pPlayer.pev.netname)
+     arr_volumes[pPlayer_index] = 1.0f;
+  
+  CheckAllVolumes();
+  
   return HOOK_CONTINUE;
 }
 
@@ -3295,6 +3601,7 @@ HookReturnCode PlayerSpawn(CBasePlayer@ pPlayer)
   }
   
   array_imded[pPlayer.entindex()-1]=false;
+  arr_antispam[pPlayer.entindex()-1]=0.0f;
   
   return HOOK_CONTINUE;
 }
@@ -3304,15 +3611,27 @@ HookReturnCode PlayerKilled(CBasePlayer@ pPlayer, CBaseEntity@ pAttacker, int iG
     if (race_happening)
        clients_ignorespeed[pPlayer.entindex()-1]=true;
     
+    if (player_die_interrupt and player_soundevent[pPlayer.entindex()-1]!="wtfboom")
+    {
+        g_SoundSystem.PlaySound(pPlayer.edict(),CHAN_STREAM,g_soundfile_silence,1.0f,0.3f,0,100,0,true,pPlayer.pev.origin);
+        g_SoundSystem.PlaySound(pPlayer.edict(),CHAN_AUTO,g_soundfile_silence,1.0f,0.3f,0,100,0,true,pPlayer.pev.origin);
+        g_SoundSystem.PlaySound(pPlayer.edict(),CHAN_STATIC,g_soundfile_silence,1.0f,0.3f,0,100,0,true,pPlayer.pev.origin);
+        //g_SoundSystem.PlaySound(pPlayer.edict(),CHAN_WEAPON,g_soundfile_silence,1.0f,0.3f,0,100,0,true,pPlayer.pev.origin);
+        //g_SoundSystem.PlaySound(pPlayer.edict(),CHAN_ITEM,g_soundfile_silence,1.0f,0.3f,0,100,0,true,pPlayer.pev.origin);
+        //g_SoundSystem.PlaySound(pPlayer.edict(),CHAN_VOICE,g_soundfile_silence,1.0f,0.3f,0,100,0,true,pPlayer.pev.origin);
+        //g_SoundSystem.PlaySound(pPlayer.edict(),CHAN_BODY,g_soundfile_silence,1.0f,0.3f,0,100,0,true,pPlayer.pev.origin);
+        if (player_soundevent[pPlayer.entindex()-1]=="basedcringe")
+           player_soundevent[pPlayer.entindex()-1] = "";
+    }
+    
     if (deathsounds_enable)
     {
     
         if (g_EngineFuncs.GetInfoKeyBuffer(pPlayer.edict()).GetValue("model")=="toilet")
-        {
-        play_sound(pPlayer,CHAN_AUTO,g_soundfiles_death[0],1.0f,0.7f,100,true);
-        }
+            play_sound(pPlayer,CHAN_AUTO,g_soundfiles_death[0],1.0f,0.7f,100,true);
     
     }
+    
     
     return HOOK_CONTINUE;
 }
@@ -3321,6 +3640,7 @@ HookReturnCode PlayerKilled(CBasePlayer@ pPlayer, CBaseEntity@ pAttacker, int iG
 HookReturnCode MapChange()
 {
   g_Scheduler.ClearTimerList(); //server will crash if timers arent cleared between map changes.
+  //UpdateActivePlayers();
   return HOOK_CONTINUE;
 }
 
@@ -3334,7 +3654,11 @@ void UpdateActivePlayers()
    {
       CBasePlayer@ pPlayer = g_PlayerFuncs.FindPlayerByIndex(i);
       if (pPlayer !is null && pPlayer.IsConnected() && pPlayer.IsPlayer())
+      {
         arr_active_players.insertLast(i);
+        // Cache player name in case they reconnect and take up the same slot. Their csvolume will be retained.
+        arr_netnames[i-1] = pPlayer.pev.netname;
+      }
       if (int(arr_active_players.length())>=g_PlayerFuncs.GetNumPlayers())
          return;
    }

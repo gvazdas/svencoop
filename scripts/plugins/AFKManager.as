@@ -15,6 +15,8 @@ Current Status: Unstable/Under Development, report bugs on forums.
 Documentation: https://github.com/MrOats/AngelScript_SC_Plugins/wiki/AFKManager.as
 */
 
+const bool notify_close = true; // "that was close" etc messages in chat
+
 const string g_warningsound = "vox/woop.wav";
 array<int> g_WarnIntervals_Sub;
 CClientCommand g_afk("afk", "Print version", @afk_command);
@@ -62,7 +64,7 @@ void afk_command(const CCommand@ pArgs)
 
 void afk(const CCommand@ pArgs, CBasePlayer@ pPlayer)
 {
-    g_PlayerFuncs.ClientPrint(pPlayer, HUD_PRINTCONSOLE, "[AFK] version 2024-01-27\n");
+    g_PlayerFuncs.ClientPrint(pPlayer, HUD_PRINTCONSOLE, "[AFK] version 2024-09-28\n");
     g_PlayerFuncs.ClientPrint(pPlayer, HUD_PRINTCONSOLE, "For the latest version go to https://github.com/gvazdas/svencoop\n");
     g_PlayerFuncs.ClientPrint(pPlayer, HUD_PRINTCONSOLE, "For the latest version go to https://github.com/gvazdas/svencoop\n");
     
@@ -232,6 +234,21 @@ final class AFK_Data
           if (playerActive)
           {
             
+            if (notify_close and g_SecondsTracker.exists(m_szSteamID))
+            {   
+                secondsAFK = int(g_SecondsTracker[szSteamID]);
+                if (afkstatus!=NOTAFK and playerActive)
+                {
+                      
+                      if ( afkstatus==AFKALIVE and g_ShouldSpec.GetBool() and ((g_SecondsUntilSpec.GetInt()-secondsAFK)<=5.0f) )
+                         g_PlayerFuncs.ClientPrintAll(HUD_PRINTTALK, "[AFK] That was close " + pPlayer.pev.netname + "!\n");
+                      
+                      else if ( g_ShouldKick.GetBool() and ((g_SecondsUntilKick.GetInt()-secondsAFK)<=5.0f) )
+                         g_PlayerFuncs.ClientPrintAll(HUD_PRINTTALK, "[AFK] That was close " + pPlayer.pev.netname + "!\n");
+                      
+                }
+            }   
+            
             justStarted=false;
             secondsAFK=0;
             secondsLastWarn=0;
@@ -244,7 +261,7 @@ final class AFK_Data
               pPlayer.pev.nextthink = g_Engine.time;
               g_PlayerFuncs.ClientPrint(pPlayer, HUD_PRINTCENTER, "");
             }
-          
+      
           }
           
           // Player is not active
@@ -289,7 +306,14 @@ final class AFK_Data
                 MessageWarnAllPlayers(pPlayer, (szPlayerName) + " is AFK.");
                 secondsLastWarn = 0;
                 
-                if (g_ShouldKick.GetBool() && (g_KickAdmins.GetBool() || !isAdmin))
+                bool player_kickable = g_ShouldKick.GetBool();
+                if (player_kickable and !g_KickAdmins.GetBool())
+                {
+                    if (isAdmin)
+                       player_kickable = false;
+                }
+                
+                if (player_kickable)
                 {
                     MessageWarnPlayer(pPlayer, GetStringTimeAuto(secondsUntilKick) + " until you are kicked.");
                     
