@@ -31,7 +31,7 @@ You will also find additional audio de-clutter and player interruption flags tha
 
 # AFKManager
 
-A heavily modified version of a script originally made by MrOats
+A heavily modified version of a script originally made by MrOats. Player activity detection is much more sensitive, reacting to player mouse movement, typing in chat.
 https://github.com/MrOats/AngelScript_SC_Plugins
 
 # Loading music
