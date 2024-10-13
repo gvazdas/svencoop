@@ -712,3 +712,62 @@ weapons hgrunt/weapons.wav
 weapons! hgrunt/weapons!.wav
 
 run chat/up12/run.wav
+
+duke chat/up7/duke1.wav
+duke chat/up7/duke2.wav
+duke chat/up7/duke3.wav
+duke chat/up7/duke4.wav
+duke chat/up7/duke5.wav
+duke chat/up7/duke6.wav
+duke chat/up7/duke7.wav
+duke chat/up7/duke8.wav
+duke chat/up7/duke9.wav
+duke chat/up7/duke10.wav
+duke chat/up7/duke11.wav
+duke chat/up7/duke12.wav
+duke chat/up7/duke13.wav
+duke chat/up7/duke14.wav
+duke chat/up7/duke15.wav
+
+dracula chat/up7/dracula1.wav
+dracula chat/up7/dracula2.wav
+dracula chat/up7/dracula3.wav
+dracula chat/up7/dracula4.wav
+dracula chat/up7/dracula5.wav
+dracula chat/up7/dracula6.wav
+
+thinking chat/thinking.wav
+thinking chat/up10/thinking2.wav
+thinking chat/up10/thinking3.wav
+thinking chat/up10/thinking4.wav
+thinking chat/up10/thinking5.wav
+thinking chat/up10/thinking6.wav
+thinking chat/up10/thinking7.wav
+thinking chat/up10/thinking8.wav
+
+funky chat/up9/funky1.wav
+funky chat/up9/funky2.wav
+funky chat/up9/funky3.wav
+
+zombiegoasts chat/up9/zombiegoasts1.wav
+zombiegoasts chat/up9/zombiegoasts2.wav
+
+meow chat/up8/meow1.wav
+meow chat/up8/meow2.wav
+meow chat/up8/meow3.wav
+meow chat/up9/meow4.wav
+
+gman chat/gman/gman1.wav
+gman chat/gman/gman2.wav
+gman chat/gman/gman3.wav
+gman chat/gman/gman4.wav
+gman chat/gman/gman5.wav
+gman chat/gman/gman6.wav
+gman chat/gman/gman7.wav
+gman chat/gman/gman8.wav
+gman chat/gman/gman9.wav
+gman chat/gman/gman10.wav
+gman chat/gman/gman11.wav
+
+soy chat/up11/soy1.wav
+soy chat/up11/soy2.wav

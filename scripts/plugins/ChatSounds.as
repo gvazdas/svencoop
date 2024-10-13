@@ -27,17 +27,10 @@ void print_cs(const CCommand@ pArgs, CBasePlayer@ pPlayer)
     g_PlayerFuncs.SayText(pPlayer, "[chatsounds] To hide chatsounds text, add ' s'. For example, hello s or hello ? s" + "\n");
     g_PlayerFuncs.SayText(pPlayer, "[chatsounds] Full syntax: trigger pitch s delay" + "\n");
     g_PlayerFuncs.SayText(pPlayer, "[chatsounds] Other commands: .listsounds .csvolume" + "\n");
-    g_PlayerFuncs.ClientPrint(pPlayer, HUD_PRINTCONSOLE, "[chatsounds] version 1.07\n");
+    g_PlayerFuncs.ClientPrint(pPlayer, HUD_PRINTCONSOLE, "[chatsounds] version 1.08\n");
     g_PlayerFuncs.ClientPrint(pPlayer, HUD_PRINTCONSOLE, "For the latest version go to https://github.com/gvazdas/svencoop\n");
     
     //CBasePlayer@ pBot = g_PlayerFuncs.CreateBot("Dipshit");
-    //if (arr_active_players.length()>1)
-    //{
-    //CBasePlayer@ pPlayer_bot = g_PlayerFuncs.FindPlayerByIndex(2);
-    //pPlayer_event_update(pPlayer_bot,"weartie",true);
-    //play_sound_stream(pPlayer_bot,string(g_SoundList["weartie"]),0.7f,0.3f,100,true,false);
-    //g_Scheduler.SetTimeout("pPlayer_event_update",3.0f,@pPlayer_bot,"weartie",false);
-    //}
     
 }
 
@@ -61,28 +54,21 @@ const bool delay_shared = false; // extreme anti-spam measure; forces all player
 const bool interrupt_event_spam = true; // interrupt event sounds emitted by player if their last event hasn't ended
 const bool event_no_overlap = true; // each sound in triggers_no_overlap can be played only by one person at any time in the whole server.
 const bool event_exclusive = false; // if true, only one event type sound can be played at any time in the whole server. (see interrupt_dict)
-const bool event_no_other_sounds = true; //if true, players emitting an event sound cannot emit any sounds until the event is over.
+const bool event_no_other_sounds = true; //if true, players emitting an event sound cannot emit any sounds until their event is over.
 const bool player_die_interrupt = false; // if true, when player dies, forces sounds in CHAN_STATIC and CHAN_STREAM to cut off
 const bool chatsounds_only_alive = false; // if true, only alive players can emit chat sounds
 
 // Extra fun features - modify as you wish
 const bool spawnsounds_enable = true; // false to disable spawn sounds when player spawns with a glock
 const bool nishiki_enable = true; // false to disable "nishiki" timing game
-const bool duke_enable = true; // false to disable "duke"
-const bool thinking_enable = true; // false to disable "thinking"
-const bool zombiegoasts_enable = true; // false to disable "zombiegoasts"
-const bool funky_enable = true; // false to disable "funky"
 const bool boobytrap_enable = true; // false to disable "trap"
 const bool desperate_enable = true; // false to disable "desperate"
 const bool careless_enable = true; // false to disable "careless"
 const bool dental_enable = true; // false to disable "dental"
-const bool meow_enable = true; // false to disable "meow"
 const bool scream_enable = true; // false to disable "scream" and "sciteam"
-const bool dracula_enable = true; // false to disable "dracula"
 const bool deathsounds_enable = true; // false to disable custom death sounds
 const bool petition_enable = true; // false to disable "petition"
 const bool bimbos_enable = true; // false to disable "bimbos"
-const bool soy_enable = true; // false to disable "soy"
 const bool payne_enable = true; // false to disable "payne"
 const bool speed_enable = true; // false to disable "speed"
 const bool caramel_enable = true; // false to disable "caramel"
@@ -91,7 +77,6 @@ const bool standing_enable = true; // false to disable "standing"
 const bool reloadsounds_enable = true; // false to disable reload sounds
 const bool bug_enable = true; // false to disable "bug"
 const bool imded_enable = true; // false to disable "imded"
-const bool gman_enable = true; // false to disable "gman"
 const bool hammy_enable = true; // false to disable "hammy"
 const bool stalker_enable = true; // false to disable "stalker" and "nomatter" timing game
 const bool nomatter_enable = true; // false to disable "nomatter" timing game
@@ -99,6 +84,9 @@ const bool lamour_enable = true; // false to disable "lamour"
 const bool weartie_enable = true; // false to disable "weartie"
 const bool mymovie_enable = true; // false to disable "mymovie"
 const bool doot_enable = true; // false to disable "doot"
+
+// Unfinished stuff here, enable at your own peril.
+const bool multitrigger_individual = false;
 
 /// 
 
@@ -429,6 +417,9 @@ void listsounds(const CCommand@ pArgs, CBasePlayer@ pPlayer)
 
 
 
+
+
+
 ////
 
 // "nishiki", timing game
@@ -459,39 +450,6 @@ nishiki = false;
 nishiki_timing=false;
 }
 
-// "duke" Duke Nukem memes
-const array<string> g_soundfiles_duke =
-{
-"chat/up7/duke1.wav",
-"chat/up7/duke2.wav",
-"chat/up7/duke3.wav",
-"chat/up7/duke4.wav",
-"chat/up7/duke5.wav",
-"chat/up7/duke6.wav",
-"chat/up7/duke7.wav",
-"chat/up7/duke8.wav",
-"chat/up7/duke9.wav",
-"chat/up7/duke10.wav",
-"chat/up7/duke11.wav",
-"chat/up7/duke12.wav",
-"chat/up7/duke13.wav",
-"chat/up7/duke14.wav",
-"chat/up7/duke15.wav"
-};
-
-// "thinking" AVGN meme
-const array<string> g_soundfiles_thinking =
-{
-"chat/thinking.wav",
-"chat/up10/thinking2.wav",
-"chat/up10/thinking3.wav",
-"chat/up10/thinking4.wav",
-"chat/up10/thinking5.wav",
-"chat/up10/thinking6.wav",
-"chat/up10/thinking7.wav",
-"chat/up10/thinking8.wav"
-};
-
 // Spawn sounds
 float ppk_cooldown = 10.0f; // cooldown before another spawn sound can play
 bool spawn_cooldown = false;
@@ -508,21 +466,6 @@ void set_spawn_cooldown_state(bool state)
 {
 spawn_cooldown = state;
 }
-
-//"zombiegoasts"
-const array<string> g_soundfiles_zombiegoasts =
-{
-"chat/up9/zombiegoasts1.wav",
-"chat/up9/zombiegoasts2.wav"
-};
-
-// "funky"
-const array<string> g_soundfiles_funky =
-{
-"chat/up9/funky1.wav",
-"chat/up9/funky2.wav",
-"chat/up9/funky3.wav"
-};
 
 // "100" Malkavian 100% black meme
 //const array<string> g_soundfiles_100 =
@@ -575,15 +518,6 @@ const array<string> g_soundfiles_dental =
 const string g_soundfile_secret = "chat/up8/Secret.wav"; // "secret"
 const string g_soundfile_zombie_autotune = "chat/up9/zombie_autotune.wav"; // if player is zombie.mdl
 
-// "meow"
-const array<string> g_soundfiles_meow =
-{
-"chat/up8/meow1.wav",
-"chat/up8/meow2.wav",
-"chat/up8/meow3.wav",
-"chat/up9/meow4.wav"
-};
-
 // "scream"
 const array<string> g_soundfiles_scream =
 {
@@ -608,19 +542,6 @@ const array<string> g_soundfiles_scream =
 };
 
 const string g_soundfile_cough = "chat/scientist/cough.wav";
-
-// "dracula"
-const array<string> g_soundfiles_dracula =
-{
-"chat/up7/dracula1.wav",
-"chat/up7/dracula2.wav",
-"chat/up7/dracula3.wav",
-"chat/up7/dracula4.wav",
-"chat/up7/dracula5.wav",
-"chat/up7/dracula6.wav"
-};
-
-/////
 
 // customized scripting sounds
 const array<string> g_soundfiles_death =
@@ -732,15 +653,6 @@ void end_unatco_music()
 
 //////
 
-// deus ex - "soy" meme
-const array<string> g_soundfiles_soy =
-{
-"chat/up11/soy1.wav",
-"chat/up11/soy2.wav"
-};
-
-//////
-
 //for shuffling denton sound files
 array<uint> denton_i_unplayed;
 uint i_denton = 0;
@@ -770,13 +682,13 @@ string get_bimbos_snd_file()
        
        if (bimbos_job)
        {
-           snd_file = get_array_random_snd_file(g_soundfiles_job);
+           snd_file = get_array_random_file(g_soundfiles_job);
            bimbos_job=false;
            bimbos_job2=true;
        }
        else if (bimbos_job2)
        {
-           snd_file = get_array_random_snd_file(g_soundfiles_job2);
+           snd_file = get_array_random_file(g_soundfiles_job2);
            bimbos_job2=false;
        }
        else
@@ -784,7 +696,7 @@ string get_bimbos_snd_file()
            bimbos_job=false;
            bimbos_job2=false;
            
-           //snd_file = get_array_random_snd_file(g_soundfiles_denton); // old version
+           //snd_file = get_array_random_file(g_soundfiles_denton); // old version
            if (denton_i_unplayed.length()<1)
               reset_denton_shuffle();
            
@@ -809,26 +721,6 @@ string get_bimbos_snd_file()
 }
 
 /////
-
-// "gman" randomizer
-const array<string> g_soundfiles_gman =
-{
-"chat/gman/gman1.wav",
-"chat/gman/gman2.wav",
-"chat/gman/gman3.wav",
-"chat/gman/gman4.wav",
-"chat/gman/gman5.wav",
-"chat/gman/gman6.wav",
-"chat/gman/gman7.wav",
-"chat/gman/gman8.wav",
-"chat/gman/gman9.wav",
-"chat/gman/gman10.wav",
-"chat/gman/gman11.wav"
-};
-
-/////
-
-
 
 // "payne" Max Payne memes
 bool payne_music = false; //tracking if music is playing
@@ -1033,8 +925,9 @@ void race_end()
          		
          		 if (localVol > 0)
          	     {
-         	        g_SoundSystem.PlaySound(pPlayer.edict(), CHAN_STREAM, string(g_SoundList["nice"]), localVol, 0.0f, 0, 100, pPlayer.entindex());
-                 }
+         	        g_SoundSystem.PlaySound(pPlayer.edict(), CHAN_STREAM, get_trigger_snd_file("nice"),
+         	        localVol, 0.0f, 0, 100, pPlayer.entindex());
+                }
                   
               }
           }
@@ -1643,12 +1536,16 @@ void CheckReloads()
     { 
         
         CBasePlayer@ pPlayer = g_PlayerFuncs.FindPlayerByIndex(arr_active_players[i]);
+        
+        if (pPlayer is null)
+           continue;
+        
         if ( pPlayer.IsAlive() and probability_reload>0.0f and !array_reload[pPlayer.entindex()-1]  )
         {
 
            CBasePlayerWeapon@ pPlayer_weapon = cast<CBasePlayerWeapon@>(pPlayer.m_hActiveItem.GetEntity());
            if (pPlayer_weapon is null)
-              return;
+              continue;
            
            if (pPlayer_weapon.m_fInReload)
            {
@@ -1884,15 +1781,37 @@ void ReadSounds()
         continue;
 
       array<string> parsed = sLine.Split(" ");
-      if (parsed.length() < 2)
+      if (parsed.length()!=2)
         continue;
-
-      g_SoundList[parsed[0]] = parsed[1];
+      
+      const string trigger = parsed[0].ToLowercase();
+      const string filepath = parsed[1];
+      
+      array<string> temp_filepaths(0,"");
+      if (g_SoundList.exists(trigger))
+         g_SoundList.get(trigger,temp_filepaths);
+      
+      temp_filepaths.insertLast(filepath);
+      g_SoundList[trigger] = temp_filepaths;
       // parsed[2] could be used for specifying duration of file?
     }
     file.Close();
+    
   }
 }
+
+string get_trigger_snd_file(string trigger)
+{
+string snd_file = "";
+if (g_SoundList.exists(trigger))
+{
+    array<string> temp_filepaths;
+    g_SoundList.get(trigger,temp_filepaths);
+    snd_file = get_array_random_file(temp_filepaths);
+}
+return snd_file;
+}
+
 
 ////
 
@@ -1913,41 +1832,49 @@ void PluginInit()
   
   g_SoundListKeys = g_SoundList.getKeys();
   
+  // allow clients to play individual items in arrays longer than 1
+  if (multitrigger_individual)
+  {
+  
+      string temp_key;
+      array<string> temp_filepaths;
+      for (uint i = 0; i < g_SoundListKeys.length(); ++i)
+      {
+         temp_key = g_SoundListKeys[i];
+         g_SoundList.get(temp_key,temp_filepaths);
+         if (temp_filepaths.length()>1)
+         {
+            for (uint i2 = 0; i2 < temp_filepaths.length(); ++i2)
+            {
+               array<string> temp_filepath(1,temp_filepaths[i2]);
+               g_SoundList[temp_key+string(i2+1)] = temp_filepath;
+            
+            }
+         
+         }
+      }
+   
+  }
+  
   // read multi-sound triggers
   if (desperate_enable)
      g_SoundListKeys.insertLast("desperate");
   if (careless_enable)
      g_SoundListKeys.insertLast("careless");
-  if (duke_enable)
-     g_SoundListKeys.insertLast("duke");
-  if (dracula_enable)
-     g_SoundListKeys.insertLast("dracula");
   if (speed_enable)
      g_SoundListKeys.insertLast("speed");
-  if (meow_enable)
-     g_SoundListKeys.insertLast("meow");
-  if (funky_enable)
-     g_SoundListKeys.insertLast("funky");
-  if (zombiegoasts_enable)
-     g_SoundListKeys.insertLast("zombiegoasts");
   if (scream_enable)
      g_SoundListKeys.insertLast("scream");
   if (dental_enable)
      g_SoundListKeys.insertLast("dental");
-  if (thinking_enable)
-     g_SoundListKeys.insertLast("thinking");
   if (payne_enable)
      g_SoundListKeys.insertLast("payne");
-  if (gman_enable)
-     g_SoundListKeys.insertLast("gman");
   if (petition_enable)
      g_SoundListKeys.insertLast("petition");
   if (bimbos_enable)
      g_SoundListKeys.insertLast("bimbos");
   if (boobytrap_enable)
      g_SoundListKeys.insertLast("trap");
-  if (soy_enable)
-     g_SoundListKeys.insertLast("soy");
   if (hammy_enable)
      g_SoundListKeys.insertLast("hammy");
   if (lamour_enable)
@@ -1969,36 +1896,30 @@ void PluginInit()
 void MapInit()
 {
   
-  //g_soundfiles_precached.resize(0);
+  g_soundfiles_precached.resize(0);
   
   // Sound files must be precached at every map init.
   
-  // precache single-sound triggers.
+  // precache triggers in ChatSounds.txt
   string temp_key;
+  array<string> temp_filepaths;
   for (uint i = 0; i < g_SoundListKeys.length(); ++i)
   {
      temp_key = g_SoundListKeys[i];
      if (g_SoundList.exists(temp_key))
-        preacache_sound(string(g_SoundList[temp_key]));
+     {
+        g_SoundList.get(temp_key,temp_filepaths);
+        preacache_sound_array(temp_filepaths);
+     }
   }
   
   preacache_sound(g_soundfile_silence);
   
-  // precache multi-sound triggers
-  if (duke_enable)
-     preacache_sound_array(g_soundfiles_duke);
-  if (dracula_enable)
-     preacache_sound_array(g_soundfiles_dracula);
+  // precache custom triggers
   if (speed_enable)
      preacache_sound_array(g_soundfiles_speed);
-  if (meow_enable)
-     preacache_sound_array(g_soundfiles_meow);
   if (spawnsounds_enable)
      preacache_sound_array(g_soundfiles_ppk);
-  if (funky_enable)
-     preacache_sound_array(g_soundfiles_funky);
-  if (zombiegoasts_enable)
-     preacache_sound_array(g_soundfiles_zombiegoasts);
   if (scream_enable)
      preacache_sound_array(g_soundfiles_scream);
   if (desperate_enable)
@@ -2012,15 +1933,11 @@ void MapInit()
       preacache_sound_array(g_soundfiles_reload);
       preacache_sound_array(g_soundfiles_reload_revolver);
   }
-  if (thinking_enable)
-     preacache_sound_array(g_soundfiles_thinking);
   if (payne_enable)
   {
       preacache_sound_array(g_soundfiles_payne);
       preacache_sound(g_soundfile_payne_music);
   }
-  if (payne_enable)
-     preacache_sound_array(g_soundfiles_gman);
   if (petition_enable)
   {
       preacache_sound_array(g_soundfiles_petition1);
@@ -2039,8 +1956,6 @@ void MapInit()
       preacache_sound_array(g_soundfiles_trap1);
       preacache_sound_array(g_soundfiles_trap2);
   }
-  if (soy_enable)
-     preacache_sound_array(g_soundfiles_soy);
   
   //preacache_sound_array(g_soundfiles_100);
   
@@ -2136,8 +2051,10 @@ g_PlayerFuncs.CenterPrintAll(msg);
 }
 
 // get random element from array of strings
-string get_array_random_snd_file(array<string> g_soundfiles)
+string get_array_random_file(array<string> g_soundfiles)
 {
+   if (g_soundfiles.length()==1)
+      return g_soundfiles[0];
    return g_soundfiles[uint(Math.RandomLong(0,g_soundfiles.length()-1))];
 }
 
@@ -2160,7 +2077,7 @@ HookReturnCode ClientSay(SayParameters@ pParams)
       
     string soundArg = pArguments.Arg(0).ToLowercase();
     
-    if ( ( g_SoundListKeys.find(soundArg)>=0 or soundArg=="secret" or soundArg=="random") )
+    if ( ( g_SoundList.exists(soundArg) or soundArg=="secret" or soundArg=="random") )
     {
       
       // If player is not admin, don't let them trigger chatsounds. 
@@ -2303,7 +2220,7 @@ HookReturnCode ClientSay(SayParameters@ pParams)
             string text_extra = "";
             if (soundArg=="random")
             {
-               soundArg = get_array_random_snd_file(g_SoundListKeys);
+               soundArg = get_array_random_file(g_SoundListKeys);
                
                if (!silent_mode)
                {
@@ -2395,14 +2312,12 @@ HookReturnCode ClientSay(SayParameters@ pParams)
             {
                
                if (trap)
-                  snd_file = get_array_random_snd_file(g_soundfiles_trap1);
+                  snd_file = get_array_random_file(g_soundfiles_trap1);
                else
-                  snd_file = get_array_random_snd_file(g_soundfiles_trap2);
+                  snd_file = get_array_random_file(g_soundfiles_trap2);
                trap = !trap;
                
             }
-            else if (soundArg=="soy" && soy_enable)
-               snd_file = get_array_random_snd_file(g_soundfiles_soy);
             else if (soundArg=="careless" && careless_enable)
             {
                if (careless)
@@ -2420,26 +2335,12 @@ HookReturnCode ClientSay(SayParameters@ pParams)
                   snd_file = g_soundfiles_dental[0];
                dental = !dental;
             }
-            else if (soundArg=="duke" && duke_enable)
-               snd_file = get_array_random_snd_file(g_soundfiles_duke);
-            else if (soundArg=="dracula" && dracula_enable)
-               snd_file = get_array_random_snd_file(g_soundfiles_dracula);
-            else if (soundArg=="meow" && meow_enable)
-               snd_file = get_array_random_snd_file(g_soundfiles_meow);
             else if (soundArg=="secret")
                snd_file = g_soundfile_secret;
-            else if (soundArg=="funky" && funky_enable)
-               snd_file = get_array_random_snd_file(g_soundfiles_funky);
-            else if (soundArg=="zombiegoasts" && zombiegoasts_enable)
-               snd_file = get_array_random_snd_file(g_soundfiles_zombiegoasts);
             else if (soundArg=="scream" && scream_enable)
-               snd_file = get_array_random_snd_file(g_soundfiles_scream);
-            else if (soundArg=="thinking" && thinking_enable)
-               snd_file = get_array_random_snd_file(g_soundfiles_thinking);
+               snd_file = get_array_random_file(g_soundfiles_scream);
             else if (soundArg=="payne" && payne_enable)
-               snd_file = get_array_random_snd_file(g_soundfiles_payne);
-            else if (soundArg=="gman" && gman_enable)
-               snd_file = get_array_random_snd_file(g_soundfiles_gman);
+               snd_file = get_array_random_file(g_soundfiles_payne);
             else if (soundArg=="petition" && petition_enable)
                snd_file = get_petition_snd_file();
             else if (soundArg=="bimbos" && bimbos_enable)
@@ -2473,9 +2374,11 @@ HookReturnCode ClientSay(SayParameters@ pParams)
                   snd_file="";
             }
             else if (soundArg=="stalker" && stalker_enable)
-               snd_file = get_array_random_snd_file(g_soundfiles_stalker);
+               snd_file = get_array_random_file(g_soundfiles_stalker);
             else
-               snd_file = string(g_SoundList[soundArg]);
+            {
+               snd_file = get_trigger_snd_file(soundArg);
+            }
              
             if (snd_file.IsEmpty())
                return HOOK_CONTINUE;
@@ -3116,8 +3019,8 @@ HookReturnCode ClientSay(SayParameters@ pParams)
         	if (num_triggers<=1)
         	{
         	   t_scream_delaystart = 1.85f;
-               t_scream_delaystart *= (100/float(pitch));
-        	   g_Scheduler.SetTimeout("play_sound_auto",t_delay+t_scream_delaystart,@pPlayer,g_soundfile_cough,volume,attenuation,pitch,true,true);
+              t_scream_delaystart *= (100/float(pitch));
+        	   g_Scheduler.SetTimeout("play_sound_cough",t_delay+t_scream_delaystart,@pPlayer,volume,attenuation,pitch);
         	}
         	
         	}
@@ -3433,8 +3336,10 @@ void play_sound_zombie(CBasePlayer@ pPlayer,int in_pitch)
 
 void play_sound_nishiki(CBasePlayer@ pPlayer,int in_pitch)
 {
-   if (pPlayer.IsConnected() and pPlayer !is null)
-       play_sound(pPlayer,CHAN_STREAM,string(g_SoundList["nishiki"]),1.0f,0.3f,in_pitch,true);
+   if (pPlayer.IsConnected() and pPlayer !is null and g_SoundList.exists("nishiki"))
+   {
+       play_sound(pPlayer,CHAN_STREAM,get_trigger_snd_file("nishiki"),1.0f,0.3f,in_pitch,true);
+   }
 }
 
 void play_sound_scream(CBasePlayer@ pPlayer,int in_pitch)
@@ -3444,6 +3349,11 @@ void play_sound_scream(CBasePlayer@ pPlayer,int in_pitch)
        string snd_file = g_soundfiles_scream[uint(Math.RandomLong(0,g_soundfiles_scream.length()-1))];  
        play_sound(pPlayer,CHAN_AUTO,snd_file,1.0f,0.3f,in_pitch,true);
    }
+}
+
+void play_sound_cough(CBasePlayer@ pPlayer,float volume=1.0f,float attenuation=0.3f,int pitch=100)
+{
+   play_sound(pPlayer,CHAN_AUTO,g_soundfile_cough,volume,attenuation,pitch,true,false,false);
 }
 
 // play_sound variations with SOUND_CHANNEL fixed for SetTimeout calls to work
@@ -3503,13 +3413,13 @@ void play_sound(CBasePlayer@ pPlayer,SOUND_CHANNEL audio_channel,string snd_file
                 bool setOrigin=true,bool hide_sprite=false, bool anti_spam=false)
 {
     
-    if (volume<=0.0f)
+    if (volume<=0.0f or snd_file.IsEmpty())
        return;
     
     float t = g_EngineFuncs.Time();
     uint pPlayer_index = pPlayer.entindex()-1;
     
-    // Check if sound should not play due to audio clutter
+    // Check if sound should not play due to audio de-clutter features
     if (anti_spam)
     {
         if (chatsounds_only_alive)

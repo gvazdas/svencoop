@@ -4,7 +4,8 @@
 // Admin Votes Plugin
 //
 
-const float vote_autopass_ratio = 0.75f; // % of votes to autopass
+const float vote_autopass_ratio = 0.75f; // % players voted to automatically end
+const float autopass_grace = 3.0f; // seconds to wait for more votes before autopass
 const uint max_options = 9; // max voting options in menu
 const float vote_initial_delay = 1.0f; // wait before letting players vote
 const float update_time = 0.5f; // time between voting logic checks
@@ -14,6 +15,7 @@ uint num_options = 0;
 string vote_question = "";
 bool vote_happening = false;
 float t_vote_begin = 0.0f;
+float t_latest_vote = 0.0f;
 array<string> g_pOptionName(max_options);
 array<uint> g_pVoteCount(max_options,0);
 CTextMenu@ g_VoteMenu;
@@ -76,19 +78,21 @@ void checkVotes()
 	       votesMax=g_pVoteCount[a];
     }
     
-    uint numplayers = g_PlayerFuncs.GetNumPlayers();
+    uint numplayers = uint(g_PlayerFuncs.GetNumPlayers());
+    
     float votes_thresh = float(numplayers)*vote_autopass_ratio;
     if (votes_thresh < 1.0f)
        votes_thresh = 1.0f;
     
+    float t = g_EngineFuncs.Time();
+    
     // Determine if vote should end
     bool vote_continue = true;
-    if (votes_thresh<=float(votesMax))
+    if ( (votes_thresh<=float(votesNum) and ((t-t_latest_vote)>=autopass_grace)) or (votesMax>=numplayers) )
        vote_continue = false;
     else
     {
-       float t_passed = g_EngineFuncs.Time() - t_vote_begin;
-       if (t_passed>g_pCCVar_VoteTime.GetFloat())
+       if ((t-t_vote_begin)>g_pCCVar_VoteTime.GetFloat())
           vote_continue = false;
     }
     
@@ -150,6 +154,8 @@ void voteCount( CTextMenu@ menu, CBasePlayer@ pPlayer, int iSlot, const CTextMen
 	{
 		if ( g_pCCVar_VoteAnswers.GetBool() )
 		    g_PlayerFuncs.ClientPrintAll( HUD_PRINTTALK, string(pPlayer.pev.netname) + " voted: " + g_pOptionName[uint(iSlot-1)] + "\n" );
+        
+        t_latest_vote = g_EngineFuncs.Time();
         
         g_PlayerFuncs.ClientPrint(pPlayer, HUD_PRINTNOTIFY, "Type .vote to recast your vote.\n");
 		g_pVoteCount[iSlot-1]++;
@@ -249,11 +255,12 @@ if (vote_happening and g_VoteMenu !is null)
     const string firstArg = pArguments.Arg(0).ToLowercase();
     if (firstArg==".vote")
     {
-       float t_left =  g_EngineFuncs.Time()-t_vote_begin+g_pCCVar_VoteTime.GetFloat();
-       if (t_left<1.0f)
+       // Check if vote is about to end
+       float t_elapsed =  g_EngineFuncs.Time()-t_vote_begin;
+       if ( t_elapsed>=(g_pCCVar_VoteTime.GetFloat()-1.0f) )
           return HOOK_CONTINUE;
        
-       g_VoteMenu.Open(int(t_left),0,pPlayer);
+       g_VoteMenu.Open(int(t_elapsed),0,pPlayer);
        
        int i_vote = client_votes[pPlayer.entindex()-1];
        if (i_vote>=0)
@@ -278,7 +285,8 @@ if (vote_happening and g_VoteMenu !is null)
     if (i_vote>=0)
     {
        client_votes[pPlayer.entindex()-1] = -1;
-       g_pVoteCount[i_vote]--;
+       if (g_pVoteCount[i_vote]>0)
+          g_pVoteCount[i_vote]--;
     }
 }
 
