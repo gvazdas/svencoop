@@ -7,9 +7,27 @@
 Based on a heavily modified version by incognico
 https://github.com/incognico/svencoop-plugins/blob/master/twlz/ChatSounds.as
 
+## Syntax and custom features
+
+trigger pitch s delay
+
+pitch: a number between 50 and 250; controls audio pitch.
+
+s: add this to hide the text message in chat but still play the sound.
+
+delay: in seconds, how long to wait before emitting the sound.
+
+Some triggers do more than just play sound files; some will randomize sounds from a preset list, others will change player glow,
+a few will make nearbly players emit sounds, a couple will mess with the game engine, heal players, etc. Here is a full list of these custom triggers:
+
+random nishiki duke thinking zombiegoasts funky trap desperate careless dental meow sciteam scream dracula petition zombie
+bimbos soy payne speed caramel wtfboom standing bug imded gman hammy stalker nomatter lamour weartie mymovie doot basedcringe
+
 ## Commands
 .cs
+
 .listsounds
+
 .csvolume
 
 ## Adding your own sound files
@@ -60,6 +78,7 @@ https://github.com/MrOats/AngelScript_SC_Plugins/blob/master/RockTheVote.as
 
 ## Commands
 rtv
+
 nominate
 
 # Goto
@@ -69,4 +88,5 @@ https://github.com/Duk0/AngelScript-SvenCoop/blob/master/plugins/Goto.as
 
 ## Commands
 !goto menu
+
 !goto player
