@@ -26,11 +26,11 @@
 		"script" "ChatSounds"
 	}
 
-      "plugin"
-	{
-		"name" "MicFix"
-		"script" "MicFix"
-	}
+    //  "plugin"
+	//{
+	//	"name" "MicFix"
+	//	"script" "MicFix"
+	//}
       
       "plugin"
 	{
@@ -38,11 +38,11 @@
 		"script" "RockTheVote"
 	}
     
-      "plugin"
-	{
-		"name" "AntiBlock"
-		"script" "AntiBlock"
-	}
+    //  "plugin"
+	//{
+	//	"name" "AntiBlock"
+	//	"script" "AntiBlock"
+	//}
     
       "plugin"
 	{
