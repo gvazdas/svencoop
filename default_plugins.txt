@@ -1,0 +1,104 @@
+//========================================
+//
+//	This file lists all plugins that are loaded by the game
+//	Plugins use Angelscript
+//
+//========================================
+"plugins"
+{
+	"plugin"
+	{
+		"name" "PlayerManagement"
+		"script" "admin/PlayerManagement"
+		"concommandns" "plrmgr"
+	}
+
+        //"plugin"
+	//{
+	//	"name" "ClassicModeDeluxe"
+	//	"script" "ClassicModeDeluxe/ClassicModeDeluxe"
+	//	"concommandns" "cm"
+	//}
+
+	"plugin"
+	{
+		"name" "ChatSounds"
+		"script" "ChatSounds"
+	}
+
+      "plugin"
+	{
+		"name" "MicFix"
+		"script" "MicFix"
+	}
+      
+      "plugin"
+	{
+		"name" "RockTheVote"
+		"script" "RockTheVote"
+	}
+    
+      "plugin"
+	{
+		"name" "AntiBlock"
+		"script" "AntiBlock"
+	}
+    
+      "plugin"
+	{
+		"name" "AFKManager"
+		"script" "AFKManager"
+	}
+    
+      "plugin"
+	{
+		"name" "Msg"
+		"script" "Msg"
+	}
+    
+      "plugin"
+	{
+		"name" "loadingmusic"
+		"script" "loadingmusic"
+	}
+    
+      "plugin"
+	{
+		"name" "Goto"
+		"script" "Goto"
+	}
+       
+       //"plugin"
+	//{
+	//	"name" "doom_maps"
+	//	"script" "doom_maps"
+	//}
+
+        "plugin"
+	{
+		"name" "Admin_custom_votes"
+		"script" "Admin_custom_votes"
+	}
+
+
+
+
+//	"plugin"
+//	{
+//		"name" "EntityManager"
+//		"script" "EntityManager"
+//		"concommandns" "entmngr"
+//	}
+//
+//	"plugin"
+//	{
+//		"name" "Teleport"
+//		"script" "Teleport"
+//	}
+//
+//	"plugin"
+//	{
+//		"name" "Vox"
+//		"script" "Vox"
+//	}
+}
