@@ -34,6 +34,8 @@ bimbos soy payne speed caramel wtfboom standing bug imded gman hammy stalker nom
 
 Go to scripts/plugins/ChatSounds.txt. Each line contains a trigger and its corresponding filepath.
 
+Multiple filepaths can be assigned to a trigger, which will make the trigger play a random sound from all the assigned filepaths.
+
 ## Recommended audio file format
 
 Goldsrc prefers <=22khz mono .wav audio files: they preload much faster than equivalent .mp3 or .ogg files.
