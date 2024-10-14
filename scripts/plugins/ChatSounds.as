@@ -27,7 +27,7 @@ void print_cs(const CCommand@ pArgs, CBasePlayer@ pPlayer)
     g_PlayerFuncs.SayText(pPlayer, "[chatsounds] To hide chatsounds text, add ' s'. For example, hello s or hello ? s" + "\n");
     g_PlayerFuncs.SayText(pPlayer, "[chatsounds] Full syntax: trigger pitch s delay" + "\n");
     g_PlayerFuncs.SayText(pPlayer, "[chatsounds] Other commands: .listsounds .csvolume" + "\n");
-    g_PlayerFuncs.ClientPrint(pPlayer, HUD_PRINTCONSOLE, "[chatsounds] version 1.08\n");
+    g_PlayerFuncs.ClientPrint(pPlayer, HUD_PRINTCONSOLE, "[chatsounds] version 1.09\n");
     g_PlayerFuncs.ClientPrint(pPlayer, HUD_PRINTCONSOLE, "For the latest version go to https://github.com/gvazdas/svencoop\n");
     
     //CBasePlayer@ pBot = g_PlayerFuncs.CreateBot("Dipshit");
@@ -98,6 +98,7 @@ const bool multitrigger_individual = false;
 const dictionary interrupt_dict =
 {
 {'petition',1.0f},
+{'bug',2.0f},
 {'bimbos',0.5f},
 {'payne',1.0f},
 {'duke',1.0f},
@@ -143,7 +144,7 @@ const dictionary interrupt_dict =
 // sound duration must be specified in interrupt_dict for this to work.
 const array<string> triggers_no_overlap =
 {
-"standing", "wtfboom", "careless", "speed", "funky", "vengabus",
+"standing", "wtfboom", "careless", "speed", "funky", "vengabus", "sciteam",
 "iamthestorm", "war!", "kickgum", "bandit", "scha", "godhand",
 "wombo", "duke2", "rules", "damedane", "isdead", "onlything",
 "iamthestorm", "tbc", "hero", "hammy", "nomatter", "basedcringe", "lamour", "caramel", "weartie"
@@ -1705,8 +1706,6 @@ void update_SoundTime(uint pPlayer_index=0,float t=0.0f, bool update_all=false)
 }
 
 array<bool> array_imded(g_Engine.maxClients, false); // "imded" triggers player suicide; tracking if player is dead
-dictionary g_SoundList; //keys are chat triggers; values are sound filepaths
-array<string> g_SoundListKeys; // array of chat triggers printed with .listsounds (does not include secret sounds)
 array<uint> arr_active_players; // optimization. pPlayer.entindex() values of active players
 
 ////
@@ -1746,6 +1745,8 @@ void TogglePlayerGlow(CBasePlayer@ pPlayer, bool toggle)
 
 // Reading, precaching sounds
 
+dictionary g_SoundList; //keys are chat triggers; values are sound filepaths
+array<string> g_SoundListKeys; // array of chat triggers printed with .listsounds (does not include secret sounds)
 array<string> g_soundfiles_precached; // optimization - tracking already precached audio
 
 void preacache_sound(string snd_file)
@@ -2077,7 +2078,7 @@ HookReturnCode ClientSay(SayParameters@ pParams)
       
     string soundArg = pArguments.Arg(0).ToLowercase();
     
-    if ( ( g_SoundList.exists(soundArg) or soundArg=="secret" or soundArg=="random") )
+    if ( ( g_SoundList.exists(soundArg) or (g_SoundListKeys.find(soundArg)>=0)  or soundArg=="secret" or soundArg=="random") )
     {
       
       // If player is not admin, don't let them trigger chatsounds. 
@@ -3347,7 +3348,7 @@ void play_sound_scream(CBasePlayer@ pPlayer,int in_pitch)
    if (pPlayer.IsConnected() and pPlayer !is null)
    {
        string snd_file = g_soundfiles_scream[uint(Math.RandomLong(0,g_soundfiles_scream.length()-1))];  
-       play_sound(pPlayer,CHAN_AUTO,snd_file,1.0f,0.3f,in_pitch,true);
+       play_sound(pPlayer,CHAN_AUTO,snd_file,1.0f,0.3f,in_pitch,true,false,true);
    }
 }
 
@@ -3413,7 +3414,7 @@ void play_sound(CBasePlayer@ pPlayer,SOUND_CHANNEL audio_channel,string snd_file
                 bool setOrigin=true,bool hide_sprite=false, bool anti_spam=false)
 {
     
-    if (volume<=0.0f or snd_file.IsEmpty())
+    if (volume<=0.0f or snd_file.IsEmpty() or pPlayer is null or !pPlayer.IsConnected())
        return;
     
     float t = g_EngineFuncs.Time();
@@ -3423,7 +3424,7 @@ void play_sound(CBasePlayer@ pPlayer,SOUND_CHANNEL audio_channel,string snd_file
     if (anti_spam)
     {
         if (chatsounds_only_alive)
-            if (pPlayer is null or !pPlayer.IsConnected() || pPlayer.GetObserver().IsObserver() || !pPlayer.IsAlive())
+            if (pPlayer.GetObserver().IsObserver() or !pPlayer.IsAlive())
                return;
         
         if (event_no_other_sounds)
@@ -3588,7 +3589,7 @@ void CheckAllVolumes()
          if (pPlayer is null or !pPlayer.IsConnected())
             continue;
          
-         if (arr_volumes[pPlayer_entindex-1]<1)
+         if (arr_volumes[pPlayer_entindex-1]<1.0f)
          {
             all_volumes_1 = false;
             return;

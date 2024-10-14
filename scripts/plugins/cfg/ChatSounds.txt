@@ -771,3 +771,9 @@ gman chat/gman/gman11.wav
 
 soy chat/up11/soy1.wav
 soy chat/up11/soy2.wav
+
+chips chat/up12/chips1.wav
+chips chat/up12/chips2.wav
+
+cbt chat/up12/cbt.wav
+incorrect chat/up12/incorrect.wav
