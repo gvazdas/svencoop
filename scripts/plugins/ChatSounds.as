@@ -27,7 +27,7 @@ void print_cs(const CCommand@ pArgs, CBasePlayer@ pPlayer)
     g_PlayerFuncs.SayText(pPlayer, "[chatsounds] To hide chatsounds text, add ' s'. For example, hello s or hello ? s" + "\n");
     g_PlayerFuncs.SayText(pPlayer, "[chatsounds] Full syntax: trigger pitch s delay" + "\n");
     g_PlayerFuncs.SayText(pPlayer, "[chatsounds] Other commands: .listsounds .csvolume" + "\n");
-    g_PlayerFuncs.ClientPrint(pPlayer, HUD_PRINTCONSOLE, "[chatsounds] version 1.09\n");
+    g_PlayerFuncs.ClientPrint(pPlayer, HUD_PRINTCONSOLE, "[chatsounds] version 1.1\n");
     g_PlayerFuncs.ClientPrint(pPlayer, HUD_PRINTCONSOLE, "For the latest version go to https://github.com/gvazdas/svencoop\n");
     
     //CBasePlayer@ pBot = g_PlayerFuncs.CreateBot("Dipshit");
@@ -137,6 +137,7 @@ const dictionary interrupt_dict =
 {"nomatter", 11.0f},
 {"weartie", 3.0f},
 {"basedcringe", 65.0f},
+{"cbt", 2.0f},
 {"lamour", 6.0f}
 };
 
@@ -1754,6 +1755,9 @@ void preacache_sound(string snd_file)
    
    if (snd_file.IsEmpty())
       return;
+      
+   if (snd_file.Find(".")==String::INVALID_INDEX)
+      return;
 
    if (g_soundfiles_precached.find(snd_file)<0) //negative index means it wasn't found
    {
@@ -1775,7 +1779,8 @@ void ReadSounds()
   File@ file = g_FileSystem.OpenFile(g_SoundFile, OpenFile::READ);
   if (file !is null && file.IsOpen()) {
     g_SoundList.deleteAll();
-    while(!file.EOFReached()) {
+    while(!file.EOFReached())
+    {
       string sLine;
       file.ReadLine(sLine);
       if (sLine.SubString(0,1) == "#" || sLine.IsEmpty())
@@ -1787,6 +1792,9 @@ void ReadSounds()
       
       const string trigger = parsed[0].ToLowercase();
       const string filepath = parsed[1];
+      
+      if (filepath.Find(".")==String::INVALID_INDEX)
+         continue;
       
       array<string> temp_filepaths(0,"");
       if (g_SoundList.exists(trigger))
@@ -3017,7 +3025,7 @@ HookReturnCode ClientSay(SayParameters@ pParams)
                }
         	
         	
-        	if (num_triggers<=1)
+        	if (num_triggers<1)
         	{
         	   t_scream_delaystart = 1.85f;
               t_scream_delaystart *= (100/float(pitch));

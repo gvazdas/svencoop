@@ -1,3 +1,58 @@
+ass hgrunt/ass.wav
+ass! hgrunt/ass!.wav
+shit hgrunt/shit.wav
+shit! hgrunt/shit!.wav
+bogies hgrunt/bogies.wav
+bogies! hgrunt/bogies!.wav
+that hgrunt/that.wav
+that! hgrunt/that!.wav
+heavy hgrunt/heavy.wav
+heavy! hgrunt/heavy!.wav
+freeman hgrunt/freeman.wav
+freeman! hgrunt/freeman!.wav
+go hgrunt/go.wav
+go! hgrunt/go!.wav
+your hgrunt/your.wav
+your! hgrunt/your!.wav
+you hgrunt/you.wav
+you! hgrunt/you!.wav
+my hgrunt/my.wav
+my! hgrunt/my!.wav
+is hgrunt/is.wav
+is! hgrunt/is!.wav
+i hgrunt/i.wav
+i! hgrunt/i!.wav
+am hgrunt/am.wav
+am! hgrunt/am!.wav
+got hgrunt/got.wav
+got! hgrunt/got!.wav
+god hgrunt/god.wav
+god! hgrunt/god!.wav
+damn hgrunt/damn.wav
+damn! hgrunt/damn!.wav
+mother hgrunt/mother!.wav
+uhh hgrunt/uhh.wav
+some hgrunt/some.wav
+some! hgrunt/some!.wav
+alien hgrunt/alien.wav
+alien! hgrunt/alien!.wav
+are hgrunt/are.wav
+are! hgrunt/are!.wav
+this hgrunt/this.wav
+this! hgrunt/this!.wav
+these hgrunt/these.wav
+these! hgrunt/these!.wav
+tight hgrunt/tight.wav
+tight! hgrunt/tight!.wav
+get hgrunt/get!.wav
+we hgrunt/we.wav
+we! hgrunt/we!.wav
+weapons hgrunt/weapons.wav
+weapons! hgrunt/weapons!.wav
+
+accelerating vox/accelerating.wav
+vass vox/ass.wav
+explosion vox/explosion.wav
 stairs vox/stairway.wav
 up vox/up.wav
 down vox/down.wav
@@ -49,6 +104,7 @@ mesa vox/mesa.wav
 hundred vox/hundred.wav
 thousand vox/thousand.wav
 million vox/million.wav
+
 shootit scientist/c1a2_sci_6zomb.wav
 donuts scientist/donuteater.wav
 no! scientist/sci_pain2.wav
@@ -56,10 +112,6 @@ stahp scientist/sci_pain3.wav
 greet scientist/greetings.wav
 shutup scientist/shutup.wav
 what scientist/whatyoudoing.wav
-ass hgrunt/ass.wav
-ass! hgrunt/ass!.wav
-shit hgrunt/shit.wav
-shit! hgrunt/shit!.wav
 barrel barney/c1a0_ba_hevyes.wav
 maybe barney/maybe.wav
 cya barney/seeya.wav
@@ -427,8 +479,8 @@ godhand chat/up2/godhand.wav
 casded chat/up2/cded.wav
 duke2 chat/up2/duke.wav
 1moretime chat/up2/onemore.wav
-damn! chat/up2/daaamn.wav
-damn chat/up2/damn.wav
+damn3 chat/up2/daaamn.wav
+damn2 chat/up2/damn.wav
 whatnow chat/up2/whatnow.wav
 wait chat/up2/wait.wav
 liftboy chat/up2/liftboy.wav
@@ -617,7 +669,7 @@ paynebutt chat/payne/paynebutt.wav
 
 pain chat/up11/pain.wav
 jojo chat/up11/jojo.wav
-i chat/up11/I.wav
+i... chat/up11/I.wav
 yeahso chat/up11/yeahso.wav
 daddy chat/up11/daddy.wav
 gep2 chat/up11/gep2.wav
@@ -642,74 +694,6 @@ rizzless chat/up12/rizzless.wav
 basedcringe chat/up12/basedcringe.wav
 weartie chat/up12/weartie.wav
 nomatter chat/up12/nomatter.wav
-
-bogies hgrunt/bogies.wav
-bogies! hgrunt/bogies!.wav
-
-that hgrunt/that.wav
-that! hgrunt/that!.wav
-
-heavy hgrunt/heavy.wav
-heavy! hgrunt/heavy!.wav
-
-freeman hgrunt/freeman.wav
-freeman! hgrunt/freeman!.wav
-
-go! hgrunt/go.wav
-go!! hgrunt/go!.wav
-
-your hgrunt/your.wav
-your! hgrunt/your!.wav
-
-you hgrunt/you.wav
-you! hgrunt/you!.wav
-
-my hgrunt/my.wav
-my! hgrunt/my!.wav
-
-is hgrunt/is.wav
-is! hgrunt/is!.wav
-
-i! hgrunt/i.wav
-i!! hgrunt/i!.wav
-
-am hgrunt/am.wav
-am! hgrunt/am!.wav
-
-got hgrunt/got.wav
-got! hgrunt/got!.wav
-
-god hgrunt/god.wav
-god! hgrunt/god!.wav
-
-damn!! hgrunt/damn.wav
-damn!!! hgrunt/damn!.wav
-
-mother hgrunt/mother!.wav
-uhh hgrunt/uhh.wav
-
-some hgrunt/some.wav
-some! hgrunt/some!.wav
-
-alien hgrunt/alien.wav
-alien! hgrunt/alien!.wav
-
-are hgrunt/are.wav
-are! hgrunt/are!.wav
-
-this hgrunt/this.wav
-this! hgrunt/this!.wav
-
-tight hgrunt/tight.wav
-tight! hgrunt/tight!.wav
-
-get hgrunt/get!.wav
-
-we hgrunt/we.wav
-we! hgrunt/we!.wav
-
-weapons hgrunt/weapons.wav
-weapons! hgrunt/weapons!.wav
 
 run chat/up12/run.wav
 
@@ -777,3 +761,5 @@ chips chat/up12/chips2.wav
 
 cbt chat/up12/cbt.wav
 incorrect chat/up12/incorrect.wav
+cliff chat/up12/cliff.wav
+ree chat/up12/ree.wav
