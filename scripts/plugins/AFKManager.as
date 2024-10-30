@@ -40,7 +40,7 @@ void PluginInit()
   g_Hooks.RegisterHook(Hooks::Game::MapChange, @MapChange);
 
   @g_ShouldSpec = CCVar("bShouldSpec", true, "Should player be moved to spectate for being AFK?", ConCommandFlag::AdminOnly);
-  @g_SecondsUntilSpec = CCVar("secondsUntilSpec", 120, "Seconds until player should be moved to Spectate for AFK", ConCommandFlag::AdminOnly);
+  @g_SecondsUntilSpec = CCVar("secondsUntilSpec", 20, "Seconds until player should be moved to Spectate for AFK", ConCommandFlag::AdminOnly);
   @g_ShouldKick = CCVar("bShouldKick", true, "Should player be kicked for being AFK?", ConCommandFlag::AdminOnly);
   @g_SecondsUntilKick = CCVar("secondsUntilKick", 1800, "Seconds until player is kicked for AFK", ConCommandFlag::AdminOnly);
   @g_KickAdmins = CCVar("bKickAdmins", false, "Should admins/owners be kicked for being AFK?", ConCommandFlag::AdminOnly);
@@ -64,7 +64,7 @@ void afk_command(const CCommand@ pArgs)
 
 void afk(const CCommand@ pArgs, CBasePlayer@ pPlayer)
 {
-    g_PlayerFuncs.ClientPrint(pPlayer, HUD_PRINTCONSOLE, "[AFK] version 2024-09-28\n");
+    g_PlayerFuncs.ClientPrint(pPlayer, HUD_PRINTCONSOLE, "[AFK] version 2024-10-29\n");
     g_PlayerFuncs.ClientPrint(pPlayer, HUD_PRINTCONSOLE, "For the latest version go to https://github.com/gvazdas/svencoop\n");
     g_PlayerFuncs.ClientPrint(pPlayer, HUD_PRINTCONSOLE, "For the latest version go to https://github.com/gvazdas/svencoop\n");
     
@@ -358,7 +358,7 @@ final class AFK_Data
             
             }
             
-            if (afkstatus==AFKSPEC && g_ShouldSpec.GetBool())
+            if (afkstatus==AFKSPEC && g_ShouldSpec.GetBool() && !g_SurvivalMode.IsEnabled() && pPlayer.m_flRespawnDelayTime>=Math.FLOAT_MAX)
               g_PlayerFuncs.ClientPrint(pPlayer, HUD_PRINTCENTER, GetActionText());
           
           }
