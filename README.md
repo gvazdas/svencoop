@@ -77,7 +77,7 @@ Edit Admin_custom_votes.as to change autopass threshold, autopass grace period, 
 
 # RTV
 
-Slightly modified version originally made by MrOats. Fixed some bugs, added fvox countdown sounds. Votes may end prematurely if a threshold of players is met.
+Slightly modified version of a script originally credited to MrOats. Fixed some bugs, added fvox countdown sounds. Votes can end prematurely if a threshold of players is met.
 
 https://github.com/MrOats/AngelScript_SC_Plugins/blob/master/RockTheVote.as
 
