@@ -11,6 +11,8 @@ Current Status: Stable, report bugs on forums.
 Documentation: https://github.com/MrOats/AngelScript_SC_Plugins/wiki/RockTheVote.as
 */
 
+// gvazdas 2024: fixed some bugs, added premature end to voting.
+
 final class RTV_Data
 {
 
@@ -156,8 +158,9 @@ PCG pcg_gen = PCG();
 bool isVoting = false;
 bool canRTV = false;
 
+int vote_cooldown = 0;
 int secondsleftforvote = 0;
-
+float t_latest_vote = 0.0f;
 
 CCVar@ g_SecondsUntilVote;
 CCVar@ g_MapList;
@@ -168,6 +171,8 @@ CCVar@ g_PercentageRequired;
 CCVar@ g_ChooseEnding;
 CCVar@ g_ExcludePrevMaps;
 CCVar@ g_PlaySounds;
+CCVar@ g_AutoThresh;
+CCVar@ g_AutoGrace;
 
 //Global Timers/Schedulers
 
@@ -186,15 +191,17 @@ void PluginInit()
   g_Hooks.RegisterHook(Hooks::Game::MapChange, @ResetVars);
   g_Hooks.RegisterHook(Hooks::Player::ClientSay, @Decider);
 
-  @g_SecondsUntilVote = CCVar("secondsUntilVote", 10, "Delay before players can RTV after map has started", ConCommandFlag::AdminOnly);
+  @g_SecondsUntilVote = CCVar("secondsUntilVote", 20, "Delay before players can RTV after map has started", ConCommandFlag::AdminOnly);
   @g_MapList = CCVar("szMapListPath", "mapcycle.txt", "Path to list of maps to use. Defaulted to map cycle file", ConCommandFlag::AdminOnly);
   @g_WhenToChange = CCVar("iChangeWhen", 0, "When to change maps post-vote: <0 for end of map, 0 for immediate change, >0 for seconds until change", ConCommandFlag::AdminOnly);
   @g_MaxMapsToVote = CCVar("iMaxMaps", 9, "How many maps can players nominate and vote for later", ConCommandFlag::AdminOnly);
   @g_VotingPeriodTime = CCVar("secondsToVote", 20, "How long can players vote for a map before a map is chosen", ConCommandFlag::AdminOnly);
-  @g_PercentageRequired = CCVar("iPercentReq", 50, "0-100, percent of players required to RTV before voting happens", ConCommandFlag::AdminOnly);
+  @g_PercentageRequired = CCVar("iPercentReq", 60, "0-100, percent of players required to RTV before voting happens", ConCommandFlag::AdminOnly);
   @g_ChooseEnding = CCVar("iChooseEnding", 2, "Set to 1 to revote when a tie happens, 2 to choose randomly amongst the ties, 3 to await RTV again", ConCommandFlag::AdminOnly);
   @g_ExcludePrevMaps = CCVar("iExcludePrevMaps", 0, "How many maps to exclude from nomination or voting", ConCommandFlag::AdminOnly);
   @g_PlaySounds = CCVar("bPlaySounds", 1, "Set to 1 to play sounds, set to 0 to not play sounds", ConCommandFlag::AdminOnly);
+  @g_AutoThresh = CCVar("fAutoThresh", 0.75f, "Percentage of players needed to prematurely end vote. Set to more than 1.0f to disable.", ConCommandFlag::AdminOnly);
+  @g_AutoGrace = CCVar("fAutoGrace", 3, "Seconds of voting inactivity before AutoThresh kicks in", ConCommandFlag::AdminOnly);
 
 }
 
@@ -236,6 +243,7 @@ void MapActivate()
   @g_TimeToVote = null;
   @g_TimeUntilVote = null;
   secondsleftforvote = g_VotingPeriodTime.GetInt();
+  vote_cooldown = g_SecondsUntilVote.GetInt();
 
   rtv_plr_data.resize(g_Engine.maxClients);
   for (uint i = 0; i < rtv_plr_data.length(); i++)
@@ -303,16 +311,8 @@ HookReturnCode Decider(SayParameters@ pParams)
     return HOOK_HANDLED;
 
   }
-  /* Will do this if need be...
-  else if (pArguments[0] == "!forcevote")
-  {
-
-    ForceVote(@pArguments, @pPlayer);
-    return HOOK_HANDLED;
-
-  }
-  */
-  else return HOOK_CONTINUE;
+  else
+     return HOOK_CONTINUE;
 
 }
 
@@ -355,7 +355,7 @@ HookReturnCode AddPlayer(CBasePlayer@ pPlayer)
 void DecrementSeconds()
 {
 
-  if (g_SecondsUntilVote.GetInt() == 0)
+  if (vote_cooldown<=0 or canRTV)
   {
 
     canRTV = true;
@@ -364,27 +364,44 @@ void DecrementSeconds()
 
   }
   else
-  {
-
-    g_SecondsUntilVote.SetInt(g_SecondsUntilVote.GetInt() - 1);
-
-  }
+    vote_cooldown-=1;
 
 }
 
 void DecrementVoteSeconds()
 {
-
-  if (secondsleftforvote == g_VotingPeriodTime.GetInt() &&
-      g_PlaySounds.GetBool())
+  
+  // Check if vote should end prematurely
+  float dt = g_EngineFuncs.Time() - t_latest_vote;
+  if (dt>g_AutoGrace.GetFloat() and g_AutoThresh.GetFloat()<=1.0f)
+  {
+      
+      int numVotes = int(GetVotedMaps().length());
+      int numPlayers = int(g_PlayerFuncs.GetNumPlayers());
+      
+      if (numPlayers>0 and numVotes>0)
+      {
+          float voted_percentage = float(float(numVotes)/float(numPlayers));
+          
+          if (voted_percentage>=g_AutoThresh.GetFloat())
+          {
+              PostVote();
+              g_Scheduler.RemoveTimer(g_TimeUntilVote);
+              @g_TimeUntilVote = null;
+              secondsleftforvote = g_VotingPeriodTime.GetInt();
+              return;
+          }
+      }
+  }
+  
+  string msg = "";
+  
+  if (secondsleftforvote == g_VotingPeriodTime.GetInt() && g_PlaySounds.GetBool())
   {
 
     CBasePlayer@ pPlayer = PickRandomPlayer();
     g_SoundSystem.PlaySound(pPlayer.edict(), CHAN_AUTO, "gman/gman_choose1.wav", 1.0f, ATTN_NONE, 0, 100, 0, true, pPlayer.pev.origin);
-
-    string msg = string(secondsleftforvote) + " seconds left to vote.";
-    g_PlayerFuncs.ClientPrintAll(HUD_PRINTCENTER, msg);
-    secondsleftforvote--;
+    msg = string(secondsleftforvote) + " seconds left to vote.";
 
   }
   else if (secondsleftforvote == 10 && g_PlaySounds.GetBool())
@@ -392,10 +409,7 @@ void DecrementVoteSeconds()
 
     CBasePlayer@ pPlayer = PickRandomPlayer();
     g_SoundSystem.PlaySound(pPlayer.edict(), CHAN_AUTO, "fvox/ten.wav", 1.0f, ATTN_NONE, 0, 100, 0, true, pPlayer.pev.origin);
-
-    string msg = string(secondsleftforvote) + " seconds left to vote.";
-    g_PlayerFuncs.ClientPrintAll(HUD_PRINTCENTER, msg);
-    secondsleftforvote--;
+    msg = string(secondsleftforvote) + " seconds left to vote.";
 
   }
   else if (secondsleftforvote == 5 && g_PlaySounds.GetBool())
@@ -403,10 +417,7 @@ void DecrementVoteSeconds()
 
     CBasePlayer@ pPlayer = PickRandomPlayer();
     g_SoundSystem.PlaySound(pPlayer.edict(), CHAN_AUTO, "fvox/five.wav", 1.0f, ATTN_NONE, 0, 100, 0, true, pPlayer.pev.origin);
-
-    string msg = string(secondsleftforvote) + " seconds left to vote.";
-    g_PlayerFuncs.ClientPrintAll(HUD_PRINTCENTER, msg);
-    secondsleftforvote--;
+    msg = string(secondsleftforvote) + " seconds left to vote.";
 
   }
   else if (secondsleftforvote == 4 && g_PlaySounds.GetBool())
@@ -414,10 +425,7 @@ void DecrementVoteSeconds()
 
     CBasePlayer@ pPlayer = PickRandomPlayer();
     g_SoundSystem.PlaySound(pPlayer.edict(), CHAN_AUTO, "fvox/four.wav", 1.0f, ATTN_NONE, 0, 100, 0, true, pPlayer.pev.origin);
-
-    string msg = string(secondsleftforvote) + " seconds left to vote.";
-    g_PlayerFuncs.ClientPrintAll(HUD_PRINTCENTER, msg);
-    secondsleftforvote--;
+    msg = string(secondsleftforvote) + " seconds left to vote.";
 
   }
   else if (secondsleftforvote == 3 && g_PlaySounds.GetBool())
@@ -425,10 +433,7 @@ void DecrementVoteSeconds()
 
     CBasePlayer@ pPlayer = PickRandomPlayer();
     g_SoundSystem.PlaySound(pPlayer.edict(), CHAN_AUTO, "fvox/three.wav", 1.0f, ATTN_NONE, 0, 100, 0, true, pPlayer.pev.origin);
-
-    string msg = string(secondsleftforvote) + " seconds left to vote.";
-    g_PlayerFuncs.ClientPrintAll(HUD_PRINTCENTER, msg);
-    secondsleftforvote--;
+    msg = string(secondsleftforvote) + " seconds left to vote.";
 
   }
   else if (secondsleftforvote == 2 && g_PlaySounds.GetBool())
@@ -436,10 +441,7 @@ void DecrementVoteSeconds()
 
     CBasePlayer@ pPlayer = PickRandomPlayer();
     g_SoundSystem.PlaySound(pPlayer.edict(), CHAN_AUTO, "fvox/two.wav", 1.0f, ATTN_NONE, 0, 100, 0, true, pPlayer.pev.origin);
-
-    string msg = string(secondsleftforvote) + " seconds left to vote.";
-    g_PlayerFuncs.ClientPrintAll(HUD_PRINTCENTER, msg);
-    secondsleftforvote--;
+    msg = string(secondsleftforvote) + " seconds left to vote.";
 
   }
   else if (secondsleftforvote == 1 && g_PlaySounds.GetBool())
@@ -447,13 +449,10 @@ void DecrementVoteSeconds()
 
     CBasePlayer@ pPlayer = PickRandomPlayer();
     g_SoundSystem.PlaySound(pPlayer.edict(), CHAN_AUTO, "fvox/one.wav", 1.0f, ATTN_NONE, 0, 100, 0, true, pPlayer.pev.origin);
-
-    string msg = string(secondsleftforvote) + " seconds left to vote.";
-    g_PlayerFuncs.ClientPrintAll(HUD_PRINTCENTER, msg);
-    secondsleftforvote--;
+    msg = string(secondsleftforvote) + " seconds left to vote.";
 
   }
-  else if (secondsleftforvote == 0 && g_PlaySounds.GetBool())
+  else if (secondsleftforvote <= 0)
   {
 
     PostVote();
@@ -462,14 +461,10 @@ void DecrementVoteSeconds()
     secondsleftforvote = g_VotingPeriodTime.GetInt();
 
   }
-  else
-  {
-
-    string msg = string(secondsleftforvote) + " seconds left to vote.";
-    g_PlayerFuncs.ClientPrintAll(HUD_PRINTCENTER, msg);
-    secondsleftforvote--;
-
-  }
+  
+  secondsleftforvote--;
+  if (!msg.IsEmpty())
+     g_PlayerFuncs.ClientPrintAll(HUD_PRINTCENTER, msg);
 
 }
 
@@ -480,6 +475,7 @@ void RtvPush(const CCommand@ pArguments, CBasePlayer@ pPlayer)
   {
 
     rtvmenu.Open(0, 0, pPlayer);
+    t_latest_vote = g_EngineFuncs.Time();
 
   }
   else
@@ -493,7 +489,7 @@ void RtvPush(const CCommand@ pArguments, CBasePlayer@ pPlayer)
     else
     {
 
-      MessageWarnAllPlayers(pPlayer, "RTV will enable in " + g_SecondsUntilVote.GetInt() + " seconds." );
+      MessageWarnAllPlayers(pPlayer, "RTV will enable in " + vote_cooldown + " seconds." );
 
     }
 
@@ -510,6 +506,7 @@ void RtvPush(const CCommand@ pArguments)
   {
 
     rtvmenu.Open(0, 0, pPlayer);
+    t_latest_vote = g_EngineFuncs.Time();
 
   }
   else
@@ -523,7 +520,7 @@ void RtvPush(const CCommand@ pArguments)
     else
     {
 
-      MessageWarnAllPlayers(pPlayer, "RTV will enable in " + g_SecondsUntilVote.GetInt() + " seconds." );
+      MessageWarnAllPlayers(pPlayer, "RTV will enable in " + vote_cooldown + " seconds." );
 
     }
 
@@ -926,7 +923,10 @@ void rtv_MenuCallback(CTextMenu@ rtvmenu, CBasePlayer@ pPlayer, int page, const 
 {
 
   if (item !is null && pPlayer !is null)
+  {
     vote(item.m_szName,pPlayer);
+    t_latest_vote = g_EngineFuncs.Time();
+  }
 
 }
 
@@ -995,6 +995,7 @@ void BeginVote()
 {
 
   canRTV = true;
+  t_latest_vote = g_EngineFuncs.Time();
 
   array<string> rtvList;
   array<string> mapsNominated = GetNominatedMaps();
