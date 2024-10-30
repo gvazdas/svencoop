@@ -40,11 +40,11 @@ void PluginInit()
   g_Hooks.RegisterHook(Hooks::Game::MapChange, @MapChange);
 
   @g_ShouldSpec = CCVar("bShouldSpec", true, "Should player be moved to spectate for being AFK?", ConCommandFlag::AdminOnly);
-  @g_SecondsUntilSpec = CCVar("secondsUntilSpec", 20, "Seconds until player should be moved to Spectate for AFK", ConCommandFlag::AdminOnly);
+  @g_SecondsUntilSpec = CCVar("secondsUntilSpec", 180, "Seconds until player should be moved to Spectate for AFK", ConCommandFlag::AdminOnly);
   @g_ShouldKick = CCVar("bShouldKick", true, "Should player be kicked for being AFK?", ConCommandFlag::AdminOnly);
-  @g_SecondsUntilKick = CCVar("secondsUntilKick", 1800, "Seconds until player is kicked for AFK", ConCommandFlag::AdminOnly);
+  @g_SecondsUntilKick = CCVar("secondsUntilKick", 3600, "Seconds until player is kicked for AFK", ConCommandFlag::AdminOnly);
   @g_KickAdmins = CCVar("bKickAdmins", false, "Should admins/owners be kicked for being AFK?", ConCommandFlag::AdminOnly);
-  @g_WarnInterval = CCVar("secondsWarnInterval", 40, "How many seconds between AFK warnings", ConCommandFlag::AdminOnly);
+  @g_WarnInterval = CCVar("secondsWarnInterval", 60, "How many seconds between AFK warnings", ConCommandFlag::AdminOnly);
 
 }
 
