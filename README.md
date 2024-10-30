@@ -4,14 +4,14 @@
 
 # ChatSounds
 
-Based on a heavily modified version by incognico
+A heavily modified script originally made by incognico and w00tguy
 https://github.com/incognico/svencoop-plugins/blob/master/twlz/ChatSounds.as
 
 ## Syntax and custom features
 
 trigger pitch s delay
 
-pitch: a number between 50 and 250; controls audio pitch.
+pitch: a number between 50 and 250; controls sound pitch.
 
 s: add this to hide the text message in chat but still play the sound.
 
@@ -32,9 +32,9 @@ bimbos payne speed caramel wtfboom standing bug imded hammy stalker nomatter lam
 
 ## Adding your own sound files
 
-Go to scripts/plugins/ChatSounds.txt. Each line contains a trigger and its corresponding filepath.
+Go to scripts/plugins/ChatSounds.txt. Each line contains a trigger and its corresponding filepath. Sounds will be precached if they are either in svencoop/ or svencoop_addon/.
 
-Multiple filepaths can be assigned to a trigger, which will make the trigger play a random sound from all the assigned filepaths.
+Multiple filepaths can be assigned to a trigger, which will make the trigger play a random sound from all sounds that were assigned.
 
 ## Recommended audio file format
 
@@ -52,6 +52,7 @@ You will also find additional audio de-clutter and player interruption flags tha
 # AFKManager
 
 A heavily modified version of a script originally made by MrOats. Player activity detection is much more sensitive, reacting to player mouse movement, typing in chat.
+
 https://github.com/MrOats/AngelScript_SC_Plugins
 
 # Loading music
@@ -60,7 +61,7 @@ Shuffles a list of .mp3 files provided in the script file. All clients hear the 
 
 ## Adding your own music
 
-Add more entries to the array "music_filepaths" inside loadingmusic.as. Music files can be placed either in svencoop or svencoop_addon.
+Add more entries to the array "music_filepaths" inside loadingmusic.as. Music files can be located either in svencoop or svencoop_addon.
 
 # Custom votes
 
@@ -75,7 +76,8 @@ Edit Admin_custom_votes.as to change autopass threshold, autopass grace period, 
 
 # RTV
 
-Slightly modified version originally made by MrOats
+Slightly modified version originally made by MrOats. Fixed some bugs, added fvox countdown sounds. Votes may end prematurely if a threshold of players is met.
+
 https://github.com/MrOats/AngelScript_SC_Plugins/blob/master/RockTheVote.as
 
 ## Commands
@@ -86,6 +88,7 @@ nominate
 # Goto
 
 Slightly modified version of Duk0's script to integrate the chatsounds racing feature.
+
 https://github.com/Duk0/AngelScript-SvenCoop/blob/master/plugins/Goto.as
 
 ## Commands
