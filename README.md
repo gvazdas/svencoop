@@ -4,7 +4,7 @@
 
 # ChatSounds
 
-A heavily modified script originally made by incognico and w00tguy
+A heavily modified version of a script originally made by incognico and w00tguy
 
 https://github.com/incognico/svencoop-plugins/blob/master/twlz/ChatSounds.as
 
