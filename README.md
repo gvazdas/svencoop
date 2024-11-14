@@ -10,6 +10,7 @@ https://github.com/incognico/svencoop-plugins/blob/master/twlz/ChatSounds.as
 
 ## Syntax and custom features
 
+Watch the YouTube showcase video here:
 [![YouTube showcase video](http://img.youtube.com/vi/BJFLUdxYZV0/0.jpg)](https://www.youtube.com/watch?v=BJFLUdxYZV0 "YouTube showcase video")
 
 trigger pitch s delay
