@@ -28,8 +28,10 @@ const bool interrupt_event_spam = true; // interrupt event sounds emitted by pla
 const bool event_no_overlap = true; // each sound in triggers_no_overlap can be played only by one person at any time in the whole server.
 const bool event_exclusive = false; // if true, only one event type sound can be played at any time in the whole server. (see interrupt_dict)
 const bool event_no_other_sounds = true; //if true, players emitting an event sound cannot emit any sounds until their event is over.
-const bool player_die_interrupt = false; // if true, when player dies, forces sounds in CHAN_STATIC and CHAN_STREAM to cut off
+const bool player_die_interrupt = false; // if true, when player dies, forces sounds not in CHAN_AUTO to cut off
 const bool chatsounds_only_alive = false; // if true, only alive players can emit chat sounds
+const bool interrupt_dict_nodelay = false; // force delay=0 for triggers specified in interrupt_dict
+const bool no_overlap = false; // all chatsounds play in CHAN_STREAM, each player can play only one sound at a time.
 
 // Extra fun features - modify as you wish
 const bool spawnsounds_enable = true; // false to disable spawn sounds when player spawns with a glock
@@ -148,7 +150,7 @@ void print_cs(CBasePlayer@ pPlayer)
     //CBasePlayer@ pBot = g_PlayerFuncs.CreateBot("Dipshit");
     
     NetworkMessage title( MSG_ONE_UNRELIABLE, NetworkMessages::ServerName, pPlayer.edict() );
-    title.WriteString("Chatsounds (1.2) Tutorial");
+    title.WriteString("Chatsounds (v1.21) Tutorial");
     title.End();
     
     uint iChars = 0;
@@ -165,7 +167,7 @@ void print_cs(CBasePlayer@ pPlayer)
     szMessage = szMessage + "More commands (chat or console):" + "\n\n";
     
     szMessage = szMessage + ".csmenu page" + "\n";
-    szMessage = szMessage + "Opens page (default 1) of a menu displaying all chatsounds." + "\n\n";
+    szMessage = szMessage + "Opens page (default 1) of menu displaying all chatsounds." + "\n\n";
     
     szMessage = szMessage + ".listsounds" + "\n";
     szMessage = szMessage + "Lists all chatsounds in console." + "\n\n";
@@ -2327,6 +2329,9 @@ bool chatsounds_logic(CBasePlayer@ pPlayer,string fullArg)
              bool anti_spam = true; // can the sound be interrupted by anti-spam features before it starts playing?
              float t_delay = 0.0f; //time delay between sound trigger activation and sound playing in seconds
              
+             if (no_overlap)
+                audio_channel = CHAN_STREAM;
+             
              // Check for additional arguments: pitch, silent mode, time delay.
              // Syntax: trigger pitch s delay
              if (numArgs > 1)
@@ -2360,7 +2365,7 @@ bool chatsounds_logic(CBasePlayer@ pPlayer,string fullArg)
                              g_PlayerFuncs.ClientPrint(pPlayer, HUD_PRINTCENTER, "chatsounds delay must be between 0 and 5 s\n");
                           }
                           
-                          if (interrupt_dict.exists(soundArg))
+                          if (interrupt_dict.exists(soundArg) and interrupt_dict_nodelay)
                           {
                              if (t_delay!=0.0f)
                              {
