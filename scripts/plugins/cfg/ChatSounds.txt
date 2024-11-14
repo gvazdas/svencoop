@@ -653,7 +653,7 @@ kero chat/up10/kero.wav
 
 buttsauce chat/dude/butts.wav
 fuck! chat/dude/fuck.wav
-fucku chat/dude/fucku.wav
+fku chat/dude/fku.wav
 shit2 chat/dude/shit.wav
 healthpipe chat/dude/good4me.wav
 kidding chat/dude/kidding.wav
@@ -681,7 +681,7 @@ interruption chat/up11/interruption.wav
 books chat/up11/books.wav
 fool chat/up11/fool.wav
 sure chat/up11/sure.wav
-100% chat/up11/black/100percent.wav
+100percent chat/up11/black/100percent.wav
 metoo chat/up11/black/metoo.wav
 
 wellshit chat/gman/wellshit.wav
@@ -763,3 +763,13 @@ cbt chat/up12/cbt.wav
 incorrect chat/up12/incorrect.wav
 cliff chat/up12/cliff.wav
 ree chat/up12/ree.wav
+
+nou chat/up12/nou.wav
+tits chat/up12/tits.wav
+
+fuck chat/up12/fuck2.wav
+bees chat/up12/bees.wav
+
+fuckbees chat/up12/fuckbees1.wav
+fuckbees chat/up12/fuckbees2.wav
+fuckbees chat/up12/fuckbees3.wav

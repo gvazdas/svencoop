@@ -1,6 +1,6 @@
 # Quick setup
 1. Copy scripts, sound and sprites folders into Sven Co-op/svencoop_addon.
-2. Edit Sven Co-op/svencoop/default_plugins.txt to activate the custom scripts. An example is provided which activates all scripts in this repository.
+2. Edit Sven Co-op/svencoop/default_plugins.txt to activate the scripts. An example that activates all scripts in this repository is provided.
 
 # ChatSounds
 
@@ -12,7 +12,7 @@ https://github.com/incognico/svencoop-plugins/blob/master/twlz/ChatSounds.as
 
 trigger pitch s delay
 
-pitch: a number between 50 and 250; controls sound pitch.
+pitch: a number between 50 and 255; controls sound pitch.
 
 s: add this to hide the text message in chat but still play the sound.
 
@@ -22,10 +22,13 @@ Some triggers do more than just play sound files; some will randomize sounds fro
 a few will make nearby players emit sounds, a couple will mess with the game engine, heal players, etc. Here is a full list of these custom triggers:
 
 random nishiki trap desperate careless dental sciteam scream petition zombie
-bimbos payne speed caramel wtfboom standing bug imded hammy stalker nomatter lamour weartie mymovie doot basedcringe
+bimbos payne speed caramel wtfboom standing bug imded hammy stalker nomatter
+lamour weartie mymovie doot basedcringe fku nou fuckbees
 
 ## Commands
 .cs
+
+.csmenu
 
 .listsounds
 
@@ -33,21 +36,22 @@ bimbos payne speed caramel wtfboom standing bug imded hammy stalker nomatter lam
 
 ## Adding your own sound files
 
-Go to scripts/plugins/ChatSounds.txt. Each line contains a trigger and its corresponding filepath. Sounds will be precached if they are either in svencoop/ or svencoop_addon/.
+Go to scripts/plugins/ChatSounds.txt. Each line contains a trigger and its corresponding filepath. Sounds can be located in either svencoop/ or svencoop_addon/. The latter is recommended for custom sounds.
 
-Multiple filepaths can be assigned to a trigger, which will make the trigger play a random sound from all sounds that were assigned.
+Multiple filepaths can be assigned to a trigger. A random sound from the assigned files will play.
 
 ## Recommended audio file format
 
-Goldsrc prefers <=22khz mono .wav audio files: they preload much faster than equivalent .mp3 or .ogg files.
+Goldsrc prefers <=22khz mono .wav audio files: they preload much faster than equivalent quality .mp3 or .ogg files.
 For .wav, I suggest compressing the files using IMA ADPCM or GSM compression (available in Audacity).
+GSM is the best compression algorithm but some software like Discord cannot play it natively.
 
-See https://github.com/wootguy/ChatSounds for more information about audio file formats.
+See https://github.com/wootguy/ChatSounds for more information about Sven Co-op audio file formats.
 
 ## Modifying script settings
 
 An extensive control panel is provided to customize script behavior to your taste.
-Open ChatSounds.as, starting at line 49 you will find settings that can be changed. Various features can be enabled or disabled by setting their flags to "true" or "false".
+Open ChatSounds.as, starting at line 15 you will find settings that can be changed. Various features can be enabled or disabled by setting their flags to true or false.
 You will also find additional audio de-clutter and player interruption flags that are disabled by default.
 
 # AFKManager
@@ -62,7 +66,7 @@ Shuffles a list of .mp3 files provided in the script file. All clients hear the 
 
 ## Adding your own music
 
-Add more entries to the array "music_filepaths" inside loadingmusic.as. Music files can be located either in svencoop or svencoop_addon.
+Add more entries to the array "music_filepaths" inside loadingmusic.as. Music files can be located either in svencoop or svencoop_addon. The latter is recommended for custom sounds.
 
 # Custom votes
 
@@ -88,7 +92,7 @@ nominate
 
 # Goto
 
-Slightly modified version of Duk0's script to integrate the chatsounds racing feature.
+Slightly modified version of Duk0's script to integrate the chatsounds speed feature.
 
 https://github.com/Duk0/AngelScript-SvenCoop/blob/master/plugins/Goto.as
 
