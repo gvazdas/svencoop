@@ -29,14 +29,14 @@ random nishiki trap desperate careless dental sciteam scream petition zombie
 bimbos payne speed caramel wtfboom standing bug imded hammy stalker nomatter
 lamour weartie mymovie doot basedcringe fku nou fuckbees
 
-## Commands
-.cs
+## Commands (chat or console)
+.cs - display chatsounds tutorial
 
-.csmenu
+.csmenu - display all chatsounds in a menu
 
-.listsounds
+.listsounds - display all chatsounds in console
 
-.csvolume
+.csvolume - set chatsounds volume
 
 ## Adding your own sound files
 
@@ -76,7 +76,7 @@ Add more entries to the array "music_filepaths" inside loadingmusic.as. Music fi
 
 Allows admin to run votes with up to 9 voting options. Top 3 results are printed when voting is over.
 
-## Commands
+## Commands (console)
 .vote "Question" "Answer 1" "Answer 2" "Answer 3" ...
 
 ## Editing parameters
@@ -89,7 +89,7 @@ Slightly modified version of a script originally credited to MrOats. Fixed some 
 
 https://github.com/MrOats/AngelScript_SC_Plugins/blob/master/RockTheVote.as
 
-## Commands
+## Commands (chat)
 rtv
 
 nominate
@@ -100,7 +100,7 @@ Slightly modified version of Duk0's script to integrate the chatsounds speed fea
 
 https://github.com/Duk0/AngelScript-SvenCoop/blob/master/plugins/Goto.as
 
-## Commands
+## Commands (chat)
 !goto menu
 
 !goto player
