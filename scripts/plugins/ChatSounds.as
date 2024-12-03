@@ -173,7 +173,7 @@ void print_cs(CBasePlayer@ pPlayer)
     szMessage = szMessage + "Lists all chatsounds in console." + "\n\n";
     
     szMessage = szMessage + ".csvolume number" + "\n";
-    szMessage = szMessage + "number (default 1.0) adjusts the volume of chatsounds between 0.0 and 1.0." + "\n\n";
+    szMessage = szMessage + "number (default 1.0) sets the volume of chatsounds between 0.0 and 1.0." + "\n\n";
     
     szMessage = szMessage + "https://github.com/gvazdas/svencoop to download and customize this plugin for your own server.";
     
@@ -403,7 +403,7 @@ void csvolume(CBasePlayer@ pPlayer, string full_msg)
     
         if (numArgs < 2)
         {
-            g_PlayerFuncs.SayText(pPlayer, "csvolume (0-1) sets chatsounds volume. 0 to disable.\n");
+            //g_PlayerFuncs.SayText(pPlayer, "csvolume (0-1) sets chatsounds volume. 0 to disable.\n");
             
             if (volume==0.0)
                g_PlayerFuncs.SayText(pPlayer, "csvolume is " + string(volume) + " (chatsounds disabled)\n");
@@ -427,7 +427,7 @@ void csvolume(CBasePlayer@ pPlayer, string full_msg)
         else
            g_PlayerFuncs.SayText(pPlayer, "csvolume is " + string(volume_new) + "\n");
         
-        // If player has lowered chatsounds volume, stop all sounds just in case
+        // If player has lowered chatsounds volume, stop all sounds in case they're getting blasted
         if (volume_new<volume)
         {
             NetworkMessage msg(MSG_ONE, NetworkMessages::SVC_STUFFTEXT, pPlayer.edict() );

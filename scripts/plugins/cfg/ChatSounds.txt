@@ -773,3 +773,5 @@ bees chat/up12/bees.wav
 fuckbees chat/up12/fuckbees1.wav
 fuckbees chat/up12/fuckbees2.wav
 fuckbees chat/up12/fuckbees3.wav
+
+gtho chat/up12/gtho.wav
