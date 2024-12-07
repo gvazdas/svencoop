@@ -22,6 +22,8 @@ is hgrunt/is.wav
 is! hgrunt/is!.wav
 i hgrunt/i.wav
 i! hgrunt/i!.wav
+in hgrunt/in.wav
+in! hgrunt/in!.wav
 am hgrunt/am.wav
 am! hgrunt/am!.wav
 got hgrunt/got.wav

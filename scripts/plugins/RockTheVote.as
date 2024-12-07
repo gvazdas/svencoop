@@ -188,7 +188,7 @@ void PluginInit()
   g_Module.ScriptInfo.SetContactInfo("http://forums.svencoop.com/showthread.php/44609-Plugin-RockTheVote");
   g_Hooks.RegisterHook(Hooks::Player::ClientDisconnect, @DisconnectCleanUp);
   g_Hooks.RegisterHook(Hooks::Player::ClientPutInServer, @AddPlayer);
-  g_Hooks.RegisterHook(Hooks::Game::MapChange, @ResetVars);
+  g_Hooks.RegisterHook(Hooks::Game::MapChange, @MapChange);
   g_Hooks.RegisterHook(Hooks::Player::ClientSay, @Decider);
 
   @g_SecondsUntilVote = CCVar("secondsUntilVote", 20, "Delay before players can RTV after map has started", ConCommandFlag::AdminOnly);
@@ -316,7 +316,7 @@ HookReturnCode Decider(SayParameters@ pParams)
 
 }
 
-HookReturnCode ResetVars()
+HookReturnCode MapChange(const string& in szNewMap)
 {
 
   g_Scheduler.ClearTimerList();

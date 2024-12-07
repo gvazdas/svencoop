@@ -624,7 +624,7 @@ HookReturnCode PlayerEnteredObserver(CBasePlayer@ pPlayer)
     
 }
 
-HookReturnCode MapChange()
+HookReturnCode MapChange(const string& in szNewMap)
 {
   g_ActivityList.deleteAll();
   for (uint i = 0; i < afk_plr_data.length(); i++)

@@ -52,7 +52,7 @@ HookReturnCode ClientPutInServer(CBasePlayer@ pPlayer)
 	return HOOK_CONTINUE;
 }
 
-HookReturnCode MapChange()
+HookReturnCode MapChange(const string& in szNewMap)
 {
 	if ( g_VoteMenu !is null )
 		@g_VoteMenu = null;
@@ -176,7 +176,6 @@ void cmdVote( const CCommand@ args )
 
 	if ( pPlayer is null || !pPlayer.IsConnected() )
 		return;
-
 	if ( !IsPlayerAdmin( pPlayer ) )
 	{
 		g_EngineFuncs.ClientPrintf( pPlayer, print_console, "Access denied.\n" );
@@ -212,11 +211,11 @@ void cmdVote( const CCommand@ args )
 	}
 	
 	num_options = g_pOptionName.length();
-	if (num_options<2)
+	if (num_options<2 or num_options>max_options)
+	{
+	   g_EngineFuncs.ClientPrintf( pPlayer, print_console, "Usage: ." + g_vote.GetName() + " " + g_vote.GetHelpInfo() + "\n" );
 	   return;
-	
-	if (num_options>max_options)
-		num_options = max_options;
+    }
 
 	@g_VoteMenu = CTextMenu( @voteCount );
 	g_VoteMenu.SetTitle( "Vote: " + vote_question + "\n" );

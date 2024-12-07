@@ -11,6 +11,8 @@
 // 1. Allow players to mute other players: .csmute - specify part of nickname, or steamid. Internally it should always lock to steamid.
 // 2. Allow players to reduce frequency of playing chatsounds: .cscooldown.
 
+const bool test = true;
+
 // General variables - modify as you wish
 const string g_SpriteName = 'sprites/chat/funny.spr'; // set to empty string if you want no sprite
 const string g_SoundFile = "scripts/plugins/cfg/ChatSounds.txt"; // .txt file containing triggers and their sound file paths
@@ -3767,12 +3769,14 @@ HookReturnCode PlayerKilled(CBasePlayer@ pPlayer, CBaseEntity@ pAttacker, int iG
 }
 
 
-HookReturnCode MapChange()
+
+HookReturnCode MapChange(const string& in szNewMap)
 {
   g_Scheduler.ClearTimerList(); //server will crash if timers arent cleared between map changes.
   //UpdateActivePlayers();
   return HOOK_CONTINUE;
 }
+
 
 
 // Why do it like this? g_PlayerFuncs.GetNumPlayers() only gives you the number of active players.
