@@ -1,5 +1,5 @@
 # Quick setup
-1. Copy scripts, sound and sprites folders into svencoop_addon/.
+1. Copy scripts, sound and sprites into svencoop_addon/.
 2. Open svencoop/default_plugins.txt, add the scripts there to activate them.
 An example default_plugins.txt that activates all the scripts in this repository is provided.
 
@@ -17,11 +17,11 @@ Watch the YouTube showcase video here:
 
 syntax: trigger pitch s delay.
 
-pitch: a number between 50 and 255; controls sound pitch.
+pitch (default 100): a number between 50 and 255; controls sound pitch.
 
 s: hides overhead sprite and text message in chat but still plays the sound.
 
-delay: in seconds, how long to wait before emitting the sound.
+delay (default 0): in seconds, how long to wait before emitting the sound.
 
 Some triggers do more than just play sound files;
 some will randomize sounds from a preset list, others will change player glow,
@@ -35,28 +35,28 @@ lamour weartie mymovie doot basedcringe fku nou fuckbees
 ## Commands (chat or console)
 .cs - display chatsounds tutorial.
 
-.csmenu - display chatsounds in a menu.
+.csmenu page - display chatsounds menu (default page 1).
 
 .listsounds - display chatsounds in console.
 
-.csvolume - set chatsounds volume.
+.csvolume number - set chatsounds volume between 0.0 and 1.0 (default 1.0).
 
 ## Adding your own sound files
 
-Go to scripts/plugins/ChatSounds.txt.
-Each line contains a trigger and its corresponding filepath.
-Sounds can be located in either svencoop/sound/ or svencoop_addon/sound/
+Modify scripts/plugins/ChatSounds.txt. Each line contains a trigger and its path.
+
+Sounds can be located in svencoop/sound/ or svencoop_addon/sound/
 (you should place custom content in svencoop_addon).
 
 Multiple files can be assigned to a trigger. A random sound from all assigned files will play.
 
 ## Recommended audio file format
 
-For goldsrc, <=22khz mono .wav audio is ideal; it preloads much faster than equivalent quality .mp3 or .ogg files.
+<=22khz mono .wav audio files are ideal; they preload much faster than equivalent quality .mp3 or .ogg files.
 For .wav, I suggest compressing the files using IMA ADPCM or GSM compression (available in Audacity).
 From my experience, GSM provides the best compression but some software like Discord cannot play it natively.
 
-See https://github.com/wootguy/ChatSounds for more information about audio files in Sven Co-op and performance.
+See https://github.com/wootguy/ChatSounds for more information about audio performance in Sven Co-op.
 
 ## Modifying script settings
 
@@ -68,7 +68,7 @@ You will also find additional audio de-clutter and player interruption flags tha
 # AFKManager
 
 A heavily modified version of a script originally made by MrOats.
-Player activity detection is expanded: player mouse movement and typing in chat is detected.
+Player mouse movement and chat messages will reset the AFK timer.
 
 https://github.com/MrOats/AngelScript_SC_Plugins
 
@@ -79,7 +79,7 @@ Shuffles a list of .mp3 files provided in the script. All clients hear the same 
 ## Adding your own music
 
 Add more entries to the array "music_filepaths" inside loadingmusic.as.
-Music files can be located either in svencoop or svencoop_addon. The latter is recommended for custom sounds.
+Music files can be located in svencoop/ or svencoop_addon/ (you should place custom content in svencoop_addon). 
 
 # Custom votes
 
@@ -90,7 +90,7 @@ Allows admin to run votes with up to 9 voting options. Top 3 results are printed
 
 ## Editing parameters
 
-Edit Admin_custom_votes.as to change autopass threshold, autopass grace period, and vote time.
+Edit Admin_custom_votes.as to change autopass threshold (75%), autopass grace period (3 seconds), vote time (30 seconds).
 
 # RTV
 
