@@ -72,6 +72,8 @@ Player mouse movement and chat messages will reset the AFK timer.
 
 https://github.com/MrOats/AngelScript_SC_Plugins
 
+Admins can type .respawnall in console to force respawn all players.
+
 # Loading music
 
 Shuffles a list of .mp3 files provided in the script. All clients hear the same songs. Track changes on map change.
