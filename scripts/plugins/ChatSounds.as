@@ -11,8 +11,6 @@
 // 1. Allow players to mute other players: .csmute - specify part of nickname, or steamid. Internally it should always lock to steamid.
 // 2. Allow players to reduce frequency of playing chatsounds: .cscooldown.
 
-const bool test = true;
-
 // General variables - modify as you wish
 const string g_SpriteName = 'sprites/chat/funny.spr'; // set to empty string if you want no sprite
 const string g_SoundFile = "scripts/plugins/cfg/ChatSounds.txt"; // .txt file containing triggers and their sound file paths
@@ -23,7 +21,7 @@ const bool enable_silent = true; // true allows players to hide chatsounds text 
 const bool trigger_explicit = true; // prevents players from accidentally triggering chatsounds if their chat messages are long enough.
 
 // Anti-spam and audio de-clutter tools - modify as you wish
-const float g_Delay = 0.5f; //minimum time in seconds between chat sounds for each player
+const float g_Delay = 0.45f; //minimum time in seconds between chat sounds for each player
 const bool ignore_delay = false; // ignore g_Delay allowing players to spam non-event sounds infinitely. cannot recommend for public servers.
 const bool delay_shared = false; // extreme anti-spam measure; forces all players to run on the same g_Delay timer
 const bool interrupt_event_spam = true; // interrupt event sounds emitted by player if their last event hasn't ended
@@ -152,7 +150,7 @@ void print_cs(CBasePlayer@ pPlayer)
     //CBasePlayer@ pBot = g_PlayerFuncs.CreateBot("Dipshit");
     
     NetworkMessage title( MSG_ONE_UNRELIABLE, NetworkMessages::ServerName, pPlayer.edict() );
-    title.WriteString("Chatsounds (v1.21) Tutorial");
+    title.WriteString("Chatsounds (v1.22) Tutorial");
     title.End();
     
     uint iChars = 0;
@@ -272,7 +270,7 @@ bool IsEventPlaying()
 // Anti-spam notification
 
 array<float> arr_antispam(g_Engine.maxClients,0.0f); //track anti-spam notifications
-const float antispam_cooldown = 10.0f;
+const float antispam_cooldown = 5.0f;
 const string text_antispam = "[chatsounds] Preventing audio spam.\n";
 
 void pPlayer_print_antispam(CBasePlayer@ pPlayer)
@@ -2311,7 +2309,7 @@ bool chatsounds_logic(CBasePlayer@ pPlayer,string fullArg)
        
        // check if player is alive and whether they should emit the sound
        if (chatsound_allow and chatsounds_only_alive)
-           if (pPlayer is null or !pPlayer.IsConnected() or pPlayer.GetObserver().IsObserver() or !pPlayer.IsAlive())
+           if (pPlayer.GetObserver().IsObserver() or !pPlayer.IsAlive())
               chatsound_allow=false;
 
        if (chatsound_allow)
