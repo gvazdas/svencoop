@@ -3260,9 +3260,8 @@ bool chatsounds_logic(CBasePlayer@ pPlayer,string fullArg)
                 for (int i = 1; i < (g_Engine.maxEntities); i++)
                 {
                 
-                    edict_t@ temp_edict = g_EngineFuncs.PEntityOfEntIndex(i);
-                    CBaseEntity@ pEntity = g_EntityFuncs.Instance(temp_edict);
-                    if (pEntity !is null and !pEntity.IsPlayer() and pEntity.IsAlive())
+                    CBaseEntity@ pEntity = g_EntityFuncs.Instance(g_EngineFuncs.PEntityOfEntIndex(i));
+                    if (pEntity !is null and pEntity.IsMonster() and pEntity.IsAlive() and pEntity.IsInWorld())
                     {
                     
                         if (pPlayer_origin.opSub(pEntity.GetOrigin()).Length() <= scream_distance)

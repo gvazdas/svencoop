@@ -4,23 +4,6 @@ const array<string> music_filepaths = {
 "sound/snd/ambience.mp3",
 "sound/bridge/chill.mp3",
 "media/Half-Life03.mp3",
-"sound/loading/battletoads.mp3",
-"sound/loading/croteam.mp3",
-"sound/loading/demonssouls.mp3",
-"sound/loading/ds2isthebest.mp3",
-"sound/loading/dunes.mp3",
-"sound/loading/dxtitle.mp3",
-"sound/loading/dxunatco.mp3",
-"sound/loading/godhand.mp3",
-"sound/loading/goingup.mp3",
-"sound/loading/mgsnuke.mp3",
-"sound/loading/nerevar.mp3",
-"sound/loading/seashanty2.mp3",
-"sound/loading/terranone.mp3",
-"sound/loading/tristram.mp3",
-"sound/loading/ttp2nj.mp3",
-"sound/loading/delune.mp3",
-"sound/loading/sense.mp3",
 "sound/fortified/callme.mp3"
 };
 
