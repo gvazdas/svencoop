@@ -104,6 +104,7 @@ void checkVotes()
     
     vote_happening = false;
     g_PlayerFuncs.ClientPrintAll( HUD_PRINTTALK, "Vote result for " + vote_question + ":\n");
+    g_EngineFuncs.ServerPrint("Vote result for " + vote_question + ":\n");
     
     if (votesNum<1)
     {
@@ -117,6 +118,8 @@ void checkVotes()
     string temp_answer = "";
     for (uint i_rank = 0; i_rank<3; i_rank++)
     {
+       if ((i_rank+1)>votes_sorted.length())
+          break;
        float percent_voted = float(votes_sorted[i_rank])/float(votesNum)*100.0f;
        int new_index = g_pVoteCount.find(votes_sorted[i_rank]);
        
@@ -128,7 +131,8 @@ void checkVotes()
            if (index_temp>=0)
            {
            temp_answer = g_pOptionName[index_temp];
-           g_PlayerFuncs.ClientPrintAll(HUD_PRINTTALK, "#" + string(i_rank+1) + " (" + string(Math.Ceil(percent_voted)) + "%%%) " + temp_answer + "\n");
+           g_PlayerFuncs.ClientPrintAll(HUD_PRINTTALK, "#" + string(i_rank+1) + " (" + string(Math.Ceil(percent_voted)) + "%%" + ") " + temp_answer + "\n");
+           g_EngineFuncs.ServerPrint("#" + string(i_rank+1) + " (" + string(Math.Ceil(percent_voted)) + "%%" +  ") " + temp_answer + "\n");
            }
        }
        

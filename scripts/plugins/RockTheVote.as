@@ -154,7 +154,7 @@ array<string> maplist;
 
 PCG pcg_gen = PCG();
 
-
+bool first_spawn = false;
 bool isVoting = false;
 bool canRTV = false;
 
@@ -243,7 +243,8 @@ void MapActivate()
   @g_TimeToVote = null;
   @g_TimeUntilVote = null;
   secondsleftforvote = g_VotingPeriodTime.GetInt();
-  vote_cooldown = g_SecondsUntilVote.GetInt();
+  //first_spawn = false;
+  //vote_cooldown = g_SecondsUntilVote.GetInt();
 
   rtv_plr_data.resize(g_Engine.maxClients);
   for (uint i = 0; i < rtv_plr_data.length(); i++)
@@ -286,9 +287,6 @@ void MapActivate()
   if (g_ExcludePrevMaps.GetInt() < 0)
     g_ExcludePrevMaps.SetInt(0);
 
-
-  @g_TimeUntilVote = g_Scheduler.SetInterval("DecrementSeconds", 1, g_SecondsUntilVote.GetInt() + 1);
-
 }
 
 HookReturnCode Decider(SayParameters@ pParams)
@@ -322,6 +320,8 @@ HookReturnCode MapChange(const string& in szNewMap)
   g_Scheduler.ClearTimerList();
   @g_TimeToVote = null;
   @g_TimeUntilVote = null;
+  first_spawn = false;
+  canRTV=false;
 
   prevmaps.insertLast(g_Engine.mapname);
   if ( (int(prevmaps.length()) > g_ExcludePrevMaps.GetInt()))
@@ -346,6 +346,13 @@ HookReturnCode AddPlayer(CBasePlayer@ pPlayer)
 
   RTV_Data@ rtvdataobj = RTV_Data(pPlayer);
   @rtv_plr_data[pPlayer.entindex() - 1] = @rtvdataobj;
+  if (!first_spawn)
+  {
+     vote_cooldown = g_SecondsUntilVote.GetInt();
+     @g_TimeUntilVote = g_Scheduler.SetInterval("DecrementSeconds", 1, g_SecondsUntilVote.GetInt() + 1);
+     first_spawn = true;
+     canRTV=false;
+  }
 
   return HOOK_HANDLED;
 
@@ -355,7 +362,7 @@ HookReturnCode AddPlayer(CBasePlayer@ pPlayer)
 void DecrementSeconds()
 {
 
-  if (vote_cooldown<=0 or canRTV)
+  if ((vote_cooldown<=0 and first_spawn) or canRTV)
   {
 
     canRTV = true;
@@ -386,8 +393,8 @@ void DecrementVoteSeconds()
           if (voted_percentage>=g_AutoThresh.GetFloat())
           {
               PostVote();
-              g_Scheduler.RemoveTimer(g_TimeUntilVote);
-              @g_TimeUntilVote = null;
+              g_Scheduler.RemoveTimer(g_TimeToVote);
+              @g_TimeToVote = null;
               secondsleftforvote = g_VotingPeriodTime.GetInt();
               return;
           }
@@ -456,8 +463,8 @@ void DecrementVoteSeconds()
   {
 
     PostVote();
-    g_Scheduler.RemoveTimer(g_TimeUntilVote);
-    @g_TimeUntilVote = null;
+    g_Scheduler.RemoveTimer(g_TimeToVote);
+    @g_TimeToVote = null;
     secondsleftforvote = g_VotingPeriodTime.GetInt();
 
   }
@@ -1055,16 +1062,14 @@ void BeginVote()
 void PostVote()
 {
 
-  array<string> rtvList = GetVotedMaps();
+  array<string> rtvList = GetVotedMaps(); //each item is a map voted by a player
   dictionary rtvVotes;
   int highestVotes = 0;
 
   //Initialize Dictionary of votes
   for (uint i = 0; i < rtvList.length(); i++)
   {
-
     rtvVotes.set( rtvList[i], 0);
-
   }
 
   for (uint i = 0; i < rtvList.length(); i++)
@@ -1086,16 +1091,49 @@ void PostVote()
 
     }
   }
-
+   
+  g_PlayerFuncs.ClientPrintAll( HUD_PRINTTALK, "[RTV] Vote results:\n");
+  g_EngineFuncs.ServerPrint("[RTV] Vote results:\n");
+   
   //Nobody voted?
   if (highestVotes == 0)
   {
 
     string chosenMap = RandomMap();
-    MessageWarnAllPlayers("\"" + chosenMap +"\" has been randomly chosen since nobody picked");
+    MessageWarnAllPlayers("\"" + chosenMap +"\" was picked randomly due to no votes.");
     ChooseMap(chosenMap, false);
     return;
 
+  }
+
+  //Print voting statistics
+  array<string> maps_unsorted = rtvVotes.getKeys();
+  uint votesNum = uint(rtvList.length()); //total number of players that voted
+  array<uint> votes_unsorted(maps_unsorted.length(),0);
+  for (uint i = 0; i < maps_unsorted.length(); i++)
+  {
+      votes_unsorted[i] = uint(rtvVotes[maps_unsorted[i]]);
+  }
+  array<uint> votes_sorted = votes_unsorted;
+  votes_sorted.sortDesc();
+  int index_temp = -1; //allow index to be negative for find functionality
+  for (uint i_rank = 0; i_rank<3; i_rank++)
+  {
+     if ((i_rank+1)>votes_sorted.length())
+        break;
+     float percent_voted = float(votes_sorted[i_rank])/float(votesNum)*100.0f;
+     int new_index = votes_unsorted.find(votes_sorted[i_rank]);
+     if (percent_voted<=0.0f or new_index==index_temp) //prevent repeats from printing
+         break;
+     else
+     {
+         index_temp = new_index;
+         if (index_temp>=0)
+         {
+         g_PlayerFuncs.ClientPrintAll(HUD_PRINTTALK, "#" + string(i_rank+1) + " (" + string(Math.Ceil(percent_voted)) + "%%" + ") " + maps_unsorted[index_temp] + "\n");
+         g_EngineFuncs.ServerPrint("#" + string(i_rank+1) + " (" + string(Math.Ceil(percent_voted)) + "%%" + ") " + maps_unsorted[index_temp] + "\n");
+         }
+     }  
   }
 
   //Find how many maps were voted at the highest
@@ -1112,6 +1150,9 @@ void PostVote()
     }
   }
   singlecount.resize(0);
+  
+  
+  
 
   //Revote or random choose if more than one map is at highest vote count
   if (candidates.length() > 1)
@@ -1151,7 +1192,7 @@ void PostVote()
   else
   {
 
-    MessageWarnAllPlayers("\"" + candidates[0] +"\" won the vote!");
+    //MessageWarnAllPlayers("\"" + candidates[0] +"\" won the vote!");
     ChooseMap(candidates[0], false);
     return;
 
@@ -1173,6 +1214,7 @@ void ChooseMap(string chosenMap, bool forcechange)
 
     g_PlayerFuncs.ClientPrintAll(HUD_PRINTTALK, "[RTV] Changing map to " + chosenMap + "...\n");
     g_PlayerFuncs.CenterPrintAll("Changing map to " + chosenMap + "...\n");
+    g_EngineFuncs.ServerPrint("[RTV] Changing map to " + chosenMap + "...\n");
     //g_EngineFuncs.ServerCommand("changelevel " + chosenMap + "\n");
     g_Scheduler.SetTimeout("server_change_map", 0.1f, chosenMap);
 
