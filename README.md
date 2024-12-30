@@ -15,7 +15,7 @@ Watch the YouTube showcase video here:
 
 [![YouTube showcase video](http://img.youtube.com/vi/BJFLUdxYZV0/0.jpg)](https://www.youtube.com/watch?v=BJFLUdxYZV0 "YouTube showcase video")
 
-syntax: trigger pitch s delay.
+syntax (chat): trigger pitch s delay.
 
 pitch (default 100): a number between 50 and 255; controls sound pitch.
 
@@ -30,14 +30,14 @@ Here is a full list of these custom triggers:
 
 random nishiki trap desperate careless dental sciteam scream petition zombie
 bimbos payne speed caramel wtfboom standing bug imded hammy stalker nomatter
-lamour weartie mymovie doot basedcringe fku nou fuckbees
+lamour weartie mymovie doot basedcringe fku nou fuckbees bazinga
 
 ## Commands (chat or console)
 .cs - display chatsounds tutorial.
 
-.csmenu page - display chatsounds menu (default page 1).
+.csmenu page - display chatsounds menu (default page 1); .csmenu hgrunt to show only HECU sounds.
 
-.listsounds - display chatsounds in console.
+.listsounds - display chatsounds in console; .listsounds hgrunt to show only HECU sounds.
 
 .csvolume number - set chatsounds volume between 0.0 and 1.0 (default 1.0).
 

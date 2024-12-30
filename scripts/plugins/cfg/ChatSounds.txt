@@ -834,3 +834,11 @@ majima chat/up12/majima.wav
 kiryu chat/up12/kiryu.wav
 repta chat/up12/repta.wav
 computer chat/up12/computer.wav
+
+bazinga chat/up13/bazinga1.wav
+bazinga chat/up13/bazinga2.wav
+seinfeld chat/up13/seinfeld.wav
+lol3 chat/up13/lol1.wav
+lol4 chat/up13/lol2.wav
+lol5 chat/up13/lol3.wav
+lol6 chat/up13/lol4.wav

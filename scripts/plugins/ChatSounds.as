@@ -60,6 +60,7 @@ const bool weartie_enable = true; // false to disable "weartie"
 const bool mymovie_enable = true; // false to disable "mymovie"
 const bool doot_enable = true; // false to disable "doot"
 const bool fku_nou_enable = true; // false to disable fku nou game
+const bool bazinga_enable = true; // false to disable bazinga laugh track response
 
 // Unfinished stuff here, enable at your own peril.
 const bool multitrigger_individual = false;
@@ -116,7 +117,9 @@ const dictionary interrupt_dict =
 {"cbt", 2.0f},
 {"lamour", 6.0f},
 {"fku", 2.0f},
-{"fuckbees", 6.5f}
+{"fuckbees", 6.5f},
+{"bazinga", 2.0f},
+{"seinfeld", 3.0f}
 };
 
 // if event_no_overlap=true, sounds played by triggers in triggers_no_overlap will not be allowed to overlap between players.
@@ -126,7 +129,7 @@ const array<string> triggers_no_overlap =
 "standing", "wtfboom", "careless", "speed", "funky", "vengabus", "sciteam",
 "iamthestorm", "war!", "kickgum", "bandit", "scha", "godhand",
 "wombo", "duke2", "rules", "damedane", "isdead", "onlything",
-"iamthestorm", "tbc", "hero", "hammy", "nomatter", "basedcringe", "lamour", "caramel", "weartie"
+"iamthestorm", "tbc", "hero", "hammy", "nomatter", "basedcringe", "lamour", "caramel", "weartie", "seinfeld", "bazinga"
 };
 
 //// 
@@ -147,10 +150,10 @@ void print_cs(CBasePlayer@ pPlayer)
         return;
     g_PlayerFuncs.ClientPrint(pPlayer, HUD_PRINTCONSOLE, "To download the latest version go to https://github.com/gvazdas/svencoop\n");
     
-    //CBasePlayer@ pBot = g_PlayerFuncs.CreateBot("Dipshit");
+    CBasePlayer@ pBot = g_PlayerFuncs.CreateBot("Dipshit");
     
     NetworkMessage title( MSG_ONE_UNRELIABLE, NetworkMessages::ServerName, pPlayer.edict() );
-    title.WriteString("Chatsounds (v1.22) Tutorial");
+    title.WriteString("Chatsounds (v1.23) Tutorial");
     title.End();
     
     uint iChars = 0;
@@ -158,22 +161,23 @@ void print_cs(CBasePlayer@ pPlayer)
     
     string szMessage = "Chatsounds is a plugin for playing unfunny meme sounds from 2004, and more!" + "\n\n";
     
-    szMessage = szMessage + "Syntax (chat): trigger pitch s delay." + "\n";
-    szMessage = szMessage + "pitch (default 100): number between 50 and 255, sets audio pitch. ? to randomize." + "\n";
+    szMessage = szMessage + "How to use (chat): trigger pitch s delay." + "\n";
+    szMessage = szMessage + "trigger: label associated with sound (see .csmenu or .listsounds); random to randomize." + "\n";
+    szMessage = szMessage + "pitch (default 100): number between 50 and 255 sets audio pitch; ? to randomize." + "\n";
     szMessage = szMessage + "s: optional, hides chat message." + "\n";
     szMessage = szMessage + "delay (default 0.0): delay in seconds." + "\n";
-    szMessage = szMessage + "Example: ass ? s 0.5; plays sound associated with ass, random pitch, hidden from chat, delayed by 0.5 seconds." + "\n\n";
+    szMessage = szMessage + "Example: hello ? s 0.5; plays sound triggered by hello, random pitch, hidden from chat, delayed by 0.5 seconds." + "\n\n";
     
     szMessage = szMessage + "More commands (chat or console):" + "\n\n";
     
     szMessage = szMessage + ".csmenu page" + "\n";
-    szMessage = szMessage + "Opens page (default 1) of menu displaying all chatsounds." + "\n\n";
+    szMessage = szMessage + "-> Opens page (default 1) of menu displaying all chatsounds; .csmenu hgrunt shows only HECU sounds." + "\n";
     
     szMessage = szMessage + ".listsounds" + "\n";
-    szMessage = szMessage + "Lists all chatsounds in console." + "\n\n";
+    szMessage = szMessage + "-> Lists all chatsounds in console; .listsounds hgrunt lists only HECU sounds." + "\n";
     
     szMessage = szMessage + ".csvolume number" + "\n";
-    szMessage = szMessage + "number (default 1.0) sets the volume of chatsounds between 0.0 and 1.0." + "\n\n";
+    szMessage = szMessage + "-> number (default 1.0) sets volume of chatsounds between 0.0 and 1.0." + "\n\n";
     
     szMessage = szMessage + "https://github.com/gvazdas/svencoop to download and customize this plugin for your own server.";
     
@@ -450,6 +454,8 @@ void csvolume(CBasePlayer@ pPlayer, string full_msg)
 
 // .csmenu
 
+CTextMenu@ g_hgrunt_menu;
+array<string> hgrunt_sounds;
 CTextMenu@ g_allsounds_menu;
 void allsounds_menu( CTextMenu@ menu, CBasePlayer@ pPlayer, int iSlot, const CTextMenuItem@ pItem )
 {
@@ -458,14 +464,17 @@ void allsounds_menu( CTextMenu@ menu, CBasePlayer@ pPlayer, int iSlot, const CTe
     
     // Open the menu back in the exact same place
     int trigger_index = g_SoundListKeys.find(pItem.m_szName);
+    if (menu.GetTitle()=="chatsounds ")
+       trigger_index = g_SoundListKeys.find(pItem.m_szName) + 1; // includes random
+    else if (menu.GetTitle()=="hgrunt ")
+       trigger_index = hgrunt_sounds.find(pItem.m_szName);
+    
     if (trigger_index>=0 or pItem.m_szName=="random")
     {
-        int page = int(Math.Floor(float(trigger_index+1)/7.0f));
+        int page = int(Math.Floor(float(trigger_index)/7.0f));
         menu.Open(0,page,pPlayer);
         
         bool print_chat = chatsounds_logic(pPlayer,pItem.m_szName);
-        
-        //g_PlayerFuncs.ClientPrintAll(HUD_PRINTTALK,string(pPlayer.edict().vars.classname)+"\n");
         
         if (pItem.m_szName!="random" and print_chat)
         {
@@ -475,21 +484,32 @@ void allsounds_menu( CTextMenu@ menu, CBasePlayer@ pPlayer, int iSlot, const CTe
 
 }
 
-CClientCommand g_csmenu("csmenu", "open chatsounds menu; .csmenu page to specify page number", @csmenu_command);
+CClientCommand g_csmenu("csmenu", "open chatsounds menu; .csmenu page to specify page number; .csmenu hgrunt to open HECU menu", @csmenu_command);
 
 void csmenu_command(const CCommand@ pArgs)
 {
 	CBasePlayer@ pPlayer = g_ConCommandSystem.GetCurrentPlayer();
 	const int numArgs = pArgs.ArgC();
 	int page = 1;
+	string pageArg = "";
 	if (numArgs>1)
-	   //string pageArg= pArgs.Arg(1).ToLowercase();
-	   page = atoi(pArgs.Arg(1).ToLowercase());
-	csmenu(pPlayer,page);
+	   pageArg= pArgs.Arg(1).ToLowercase();
+	csmenu(pPlayer,pageArg);
 }
 
-void csmenu(CBasePlayer@ pPlayer,int page=1)
+void csmenu(CBasePlayer@ pPlayer,string pageArg="")
 {
+    int page = 1;
+    if (pageArg.Length()>0)
+    {
+       if (pageArg=="hgrunt")
+       {
+          g_hgrunt_menu.Open(0,0,pPlayer);
+          return;
+       }
+       page = atoi(pageArg);
+    }
+    
     int numpages = int(g_allsounds_menu.GetPageCount());
     if (page<1)
        page=1;
@@ -500,25 +520,41 @@ void csmenu(CBasePlayer@ pPlayer,int page=1)
 
 // .listsounds
 
-CClientCommand g_ListSounds("listsounds", "List all chat sounds", @listsounds_command);
+CClientCommand g_ListSounds("listsounds", "List all chat sounds; .listsounds hgrunt to list HECU sounds", @listsounds_command);
 
 void listsounds_command(const CCommand@ pArgs)
 {
 	CBasePlayer@ pPlayer = g_ConCommandSystem.GetCurrentPlayer();
-	listsounds(pPlayer);
+	
+	string special_arg="";
+	if (pArgs.ArgC() > 1)
+	   special_arg = pArgs.Arg(1);
+	listsounds(pPlayer,special_arg);
 }
 
 // .listsounds command. Taken from incognico's script
-void listsounds(CBasePlayer@ pPlayer)
+void listsounds(CBasePlayer@ pPlayer, string special="")
 {
 
-  g_PlayerFuncs.ClientPrint(pPlayer, HUD_PRINTCONSOLE, "AVAILABLE SOUND TRIGGERS\n");
+  string sMessage = "";
+  
+  array<string> list_sounds;
+  if (special=="hgrunt")
+  {
+     g_PlayerFuncs.ClientPrint(pPlayer, HUD_PRINTCONSOLE, "AVAILABLE HECU SOUND TRIGGERS\n");
+     list_sounds=hgrunt_sounds;
+  }
+  else
+  {
+     g_PlayerFuncs.ClientPrint(pPlayer, HUD_PRINTCONSOLE, "AVAILABLE SOUND TRIGGERS\n");
+     list_sounds=g_SoundListKeys;
+     sMessage = sMessage + "random | ";
+  }
+  
   g_PlayerFuncs.ClientPrint(pPlayer, HUD_PRINTCONSOLE, "------------------------\n");
 
-  string sMessage = "random | ";
-
-  for (uint i = 1; i < g_SoundListKeys.length()+1; ++i) {
-    sMessage += g_SoundListKeys[i-1] + " | ";
+  for (uint i = 1; i < list_sounds.length()+1; ++i) {
+    sMessage += list_sounds[i-1] + " | ";
 
     if (i % 5 == 0) {
       sMessage.Resize(sMessage.Length() -2);
@@ -893,6 +929,29 @@ string get_bimbos_snd_file()
    return snd_file;
    
 }
+
+/////
+
+// "bazinga" laugh track response
+
+bool seinfeld_played = false;
+
+const array<string> g_soundfiles_bazinga =
+{
+"chat/up13/lol1.wav",
+"chat/up13/lol2.wav",
+"chat/up13/lol3.wav",
+"chat/up13/lol4.wav",
+"chat/hohoho.wav",
+"chat/up7/hohohoho.wav",
+"vox/lol.wav",
+"hgrunt/c2a3_hg_laugh.wav",
+"chat/astlol.wav",
+"chat/up/scha.wav",
+"chat/dxdead.wav",
+"chat/demol.wav",
+"chat/spyl.wav"
+};
 
 /////
 
@@ -2012,13 +2071,13 @@ void PluginInit()
   ReadSounds(); // g_SoundList gets populated
   
   g_SoundListKeys = g_SoundList.getKeys();
+  array<string> temp_filepaths;
   
   // allow clients to play individual items in arrays longer than 1
   if (multitrigger_individual)
   {
   
       string temp_key;
-      array<string> temp_filepaths;
       for (uint i = 0; i < g_SoundListKeys.length(); ++i)
       {
          temp_key = g_SoundListKeys[i];
@@ -2065,15 +2124,36 @@ void PluginInit()
   
   g_SoundListKeys.sortAsc();
   
-  // Set up all sounds menu
+  // Set up dictionary to track each menu items and length
+  
+  // Set up sounds menus
   @g_allsounds_menu = CTextMenu(allsounds_menu);
+  @g_hgrunt_menu = CTextMenu(allsounds_menu);
+  
   g_allsounds_menu.SetTitle("chatsounds ");
   g_allsounds_menu.AddItem("random");
+  
+  g_hgrunt_menu.SetTitle("hgrunt ");
+  
   for (uint i = 0; i < g_SoundListKeys.length(); i++ )
   {
      g_allsounds_menu.AddItem(g_SoundListKeys[i]);
+     
+     // Add hgrunt lines to separate menu
+     g_SoundList.get(g_SoundListKeys[i],temp_filepaths);
+     if (temp_filepaths.length()>0)
+     {
+        string temp_path = temp_filepaths[0];
+        if (temp_path.Find("hgrunt/")!=String::INVALID_INDEX)
+        {
+           g_hgrunt_menu.AddItem(g_SoundListKeys[i]);
+           hgrunt_sounds.insertLast(g_SoundListKeys[i]);
+        }
+     }
+     
   }
   g_allsounds_menu.Register();
+  g_hgrunt_menu.Register();
   
   //set up speed shuffle
   i_race = Math.RandomLong(0,g_soundfiles_speed.length()-1);
@@ -2167,6 +2247,9 @@ void MapInit()
   
   if (stalker_enable)
      preacache_sound_array(g_soundfiles_stalker);
+     
+  if (bazinga_enable)
+     preacache_sound_array(g_soundfiles_bazinga);
   
   // preache hidden sound triggers
   preacache_sound(g_soundfile_secret);
@@ -2208,6 +2291,7 @@ void MapInit()
   i_petition=0;
   desperate1_index=g_Engine.maxClients+1;
   spawn_cooldown=false;
+  seinfeld_played=false;
   
   end_unatco_music();
   
@@ -2660,7 +2744,7 @@ bool chatsounds_logic(CBasePlayer@ pPlayer,string fullArg)
                 }
                 
              }
-             else if (soundArg=="fku" && fku_nou_enable && g_SoundList.exists("fku") && pPlayer.IsAlive()) 
+             else if (soundArg=="fku" && fku_nou_enable && pPlayer.IsAlive()) 
              {
                  if (fku)
                      interrupt_player=true;
@@ -2689,7 +2773,7 @@ bool chatsounds_logic(CBasePlayer@ pPlayer,string fullArg)
                  }
                 
              }
-             else if (soundArg=="nou" && fku_nou_enable && g_SoundList.exists("nou") && fku)
+             else if (soundArg=="nou" && fku_nou_enable && fku)
              {
              
                 anti_spam=false;
@@ -2723,9 +2807,10 @@ bool chatsounds_logic(CBasePlayer@ pPlayer,string fullArg)
                          if (g_SoundList.exists("incorrect"))
                          {
                              snd_file = get_trigger_snd_file("incorrect");
-                             volume /= 4.0f;
+                             volume /= 2.0f;
                          }
-                         //interrupt_player=true;
+                         else
+                            interrupt_player=true;
                          
                          gib_player(pPlayer);
                     }
@@ -3119,7 +3204,10 @@ bool chatsounds_logic(CBasePlayer@ pPlayer,string fullArg)
          	     standing_updatetime *= (100/float(pitch));
          	     float standing_delay = 2.9f*(100/float(pitch));
          	     float standing_total = 11.5f*(100/float(pitch));
+         	     
          	     float temp_time = standing_delay;
+         	     if (hide_sound) // if another player is joining - no delay
+         	        temp_time = 0.01f;
          	     
          	     CBasePlayerWeapon@ pPlayer_melee;
          	     if (pPlayer.HasNamedPlayerItem("weapon_crowbar") !is null)
@@ -3130,12 +3218,12 @@ bool chatsounds_logic(CBasePlayer@ pPlayer,string fullArg)
          	     if (pPlayer_melee !is null)
          	     {
          	        g_Scheduler.SetTimeout("weapon_swap",t_delay+temp_time/float(2),@pPlayer,@pPlayer_melee); 
-                     while (temp_time<=standing_total)
-                     {
+                    while (temp_time<=standing_total)
+                    {
                         g_Scheduler.SetTimeout("crowbar_fast",t_delay+temp_time,@pPlayer,@pPlayer_melee); 
                         temp_time += standing_updatetime;
-                     }
-                     g_Scheduler.SetTimeout("crowbar_end",t_delay+temp_time,@pPlayer,@pPlayer_melee); 
+                    }
+                    g_Scheduler.SetTimeout("crowbar_end",t_delay+temp_time,@pPlayer,@pPlayer_melee); 
      	         }
          	     
          	   }
@@ -3226,6 +3314,28 @@ bool chatsounds_logic(CBasePlayer@ pPlayer,string fullArg)
                       
                 }
          	
+         	}
+         	
+         	else if (soundArg == "bazinga" and bazinga_enable)
+         	{
+         	   
+         	   float bazinga_distance = 3000.0f;
+         	   seinfeld_played=false;
+         	   
+         	   for (uint i = 0; i < arr_active_players.length(); i++)
+               {
+                   CBasePlayer@ pPlayer_bazinga = g_PlayerFuncs.FindPlayerByIndex(arr_active_players[i]);
+                   if (pPlayer_bazinga is null or !pPlayer_bazinga.IsConnected() or pPlayer_bazinga.GetObserver().IsObserver() or !pPlayer_bazinga.IsAlive())
+                      continue;
+                   
+                   Vector pPlayer_bazinga_origin = pPlayer_bazinga.GetOrigin();
+                   if ( (pPlayer_origin.opSub(pPlayer_bazinga_origin).Length() <= bazinga_distance) and (i!=pPlayer_index) )
+                   {
+                     float bazinga_delay = (0.9f + Math.RandomFloat(-0.1f,0.3f) ) * (100/float(pitch));
+                   	 g_Scheduler.SetTimeout("respond_bazinga",t_delay+bazinga_delay,@pPlayer_bazinga,pitch); 
+                   }                   	
+               }
+     	  
          	}
          	
          	// Make nearby players emit scientist scream sounds
@@ -3409,17 +3519,20 @@ bool chatsounds_logic(CBasePlayer@ pPlayer,string fullArg)
         }
         else if (soundArg==".listsounds")
         {
-           listsounds(pPlayer);
+           string special_arg = "";
+           if (numArgs>1)
+    	      special_arg = Args[1].ToLowercase();
+           listsounds(pPlayer,special_arg);
            g_PlayerFuncs.SayText(pPlayer, "[chatsounds] See console.\n");
            g_PlayerFuncs.ClientPrint(pPlayer, HUD_PRINTNOTIFY, "See console.\n");
            return true;
         }
         else if (soundArg==".csmenu")
         {
-       	   int page = 1;
+       	   string pageArg="";
        	   if (numArgs>1)
-       	      page = atoi(Args[1].ToLowercase());
-       	   csmenu(pPlayer,page);
+       	      pageArg = Args[1].ToLowercase();
+       	   csmenu(pPlayer,pageArg);
            return true;
         }
         
@@ -3569,6 +3682,31 @@ void play_sound_scream(CBasePlayer@ pPlayer,int in_pitch)
        play_sound(pPlayer,CHAN_AUTO,snd_file,1.0f,0.3f,in_pitch,true,false,true);
    }
 }
+
+void respond_bazinga(CBasePlayer@ pPlayer,int pitch)
+{
+   if (pPlayer.IsConnected() and pPlayer !is null)
+   {
+       
+       string snd_file = "";
+       
+       if (g_SoundList.exists("seinfeld") and !seinfeld_played)
+       {
+          if (Math.RandomFloat(0.0f,1.0f)>=0.75f)
+          {
+             snd_file = get_trigger_snd_file("seinfeld");
+             seinfeld_played=true;
+          }
+       }
+       
+       if (snd_file=="")
+          snd_file = g_soundfiles_bazinga[uint(Math.RandomLong(0,g_soundfiles_bazinga.length()-1))];  
+       
+       play_sound(pPlayer,CHAN_AUTO,snd_file,1.0f,0.3f,pitch,true,false,true);
+   
+   }
+}
+
 
 void play_sound_cough(CBasePlayer@ pPlayer,float volume=1.0f,float attenuation=0.3f,int pitch=100)
 {
