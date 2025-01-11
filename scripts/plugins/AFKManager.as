@@ -18,8 +18,10 @@ Documentation: https://github.com/MrOats/AngelScript_SC_Plugins/wiki/AFKManager.
 const bool notify_close = true; // "that was close" etc messages in chat
 
 const string g_warningsound = "vox/woop.wav";
+array<int> g_WarnIntervals_Sub;
 CClientCommand g_afk("afk", "Print version", @afk_command);
 CClientCommand g_respawnall("respawnall", "Lets admin respawn all players", @respawnall, ConCommandFlag::AdminOnly);
+CClientCommand g_reviveall("reviveall", "Lets admin revive all players", @reviveall, ConCommandFlag::AdminOnly);
 
 void PluginInit()
 {
@@ -41,7 +43,7 @@ void PluginInit()
   @g_ShouldSpec = CCVar("bShouldSpec", true, "Should player be moved to spectate for being AFK?", ConCommandFlag::AdminOnly);
   @g_SecondsUntilSpec = CCVar("secondsUntilSpec", 180, "Seconds until player should be moved to Spectate for AFK", ConCommandFlag::AdminOnly);
   @g_ShouldKick = CCVar("bShouldKick", true, "Should player be kicked for being AFK?", ConCommandFlag::AdminOnly);
-  @g_SecondsUntilKick = CCVar("secondsUntilKick", 2700, "Seconds until player is kicked for AFK", ConCommandFlag::AdminOnly);
+  @g_SecondsUntilKick = CCVar("secondsUntilKick", 3600, "Seconds until player is kicked for AFK", ConCommandFlag::AdminOnly);
   @g_KickAdmins = CCVar("bKickAdmins", false, "Should admins/owners be kicked for being AFK?", ConCommandFlag::AdminOnly);
   @g_WarnInterval = CCVar("secondsWarnInterval", 60, "How many seconds between AFK warnings", ConCommandFlag::AdminOnly);
 
@@ -55,6 +57,58 @@ void respawnall(const CCommand@ pArgs)
    g_PlayerFuncs.RespawnAllPlayers(false,true);
 }
 
+// Move pPlayer to another pPlayer that is alive, if they are dead, and revive them
+void pPlayer_dead_move(CBasePlayer@ pPlayer)
+{
+
+  if (pPlayer.IsAlive())
+     return;
+  
+  CBasePlayer@ pDestPlayer = null;
+  for (int i = 1; i <= g_Engine.maxClients; i++)
+  {
+     CBasePlayer@ temp_pPlayer = g_PlayerFuncs.FindPlayerByIndex(i);
+     if (temp_pPlayer !is null && temp_pPlayer.IsConnected() && temp_pPlayer.IsPlayer() && temp_pPlayer.IsAlive() && temp_pPlayer!=pPlayer)
+     {
+       @pDestPlayer = temp_pPlayer;
+       break;
+     }
+  }
+  
+  if (pDestPlayer !is null)
+  {
+  
+      pPlayer.Revive();
+      if ( pDestPlayer.pev.flags & FL_DUCKING != 0 )
+      {
+          pPlayer.pev.flags |= FL_DUCKING;
+          pPlayer.pev.view_ofs = Vector( 0.0, 0.0, 12.0 );
+      }
+      pPlayer.SetOrigin( pDestPlayer.GetOrigin() );
+  	  pPlayer.pev.angles.x = pDestPlayer.pev.v_angle.x;
+  	  pPlayer.pev.angles.y = pDestPlayer.pev.angles.y;
+  	  pPlayer.pev.angles.z = 0;
+  	  pPlayer.pev.fixangle = FAM_FORCEVIEWANGLES;
+      pPlayer.Revive();
+  
+  }
+ 
+ 
+}
+
+void reviveall(const CCommand@ pArgs)
+{
+   for (int i = 1; i <= g_Engine.maxClients; i++)
+   {
+      CBasePlayer@ pPlayer = g_PlayerFuncs.FindPlayerByIndex(i);
+      if (pPlayer !is null && pPlayer.IsConnected() && pPlayer.IsPlayer() && !pPlayer.IsAlive())
+      {
+        pPlayer.Revive();
+        g_Scheduler.SetTimeout("pPlayer_dead_move", 1.0f, @pPlayer);
+      }
+   }
+}
+
 void afk_command(const CCommand@ pArgs)
 {
 	CBasePlayer@ pPlayer = g_ConCommandSystem.GetCurrentPlayer();
@@ -63,8 +117,11 @@ void afk_command(const CCommand@ pArgs)
 
 void afk(const CCommand@ pArgs, CBasePlayer@ pPlayer)
 {
-    g_PlayerFuncs.ClientPrint(pPlayer, HUD_PRINTCONSOLE, "[AFK] version 2024-12-25\n");
+    g_PlayerFuncs.ClientPrint(pPlayer, HUD_PRINTCONSOLE, "[AFK] version 2025-01-11\n");
     g_PlayerFuncs.ClientPrint(pPlayer, HUD_PRINTCONSOLE, "For the latest version go to https://github.com/gvazdas/svencoop\n");
+    g_PlayerFuncs.ClientPrint(pPlayer, HUD_PRINTCONSOLE, "For the latest version go to https://github.com/gvazdas/svencoop\n");
+    
+    //CBasePlayer@ pBot = g_PlayerFuncs.CreateBot("Dipshit");
     
 }
 
@@ -74,6 +131,7 @@ final class AFK_Data
   private Vector m_lastAngle;
   private float m_lastMove;
   private bool m_isAdmin = false;
+  private int m_secondsLastWarn = 0;
   private int m_secondsAFK=0;
   private CBasePlayer@ m_pPlayer;
   private string m_szPlayerName = "";
@@ -117,6 +175,11 @@ final class AFK_Data
     set { m_secondsAFK = value; }
   }
   
+  int secondsLastWarn
+  {
+    get const { return m_secondsLastWarn; }
+    set { m_secondsLastWarn = value; }
+  }
   CBasePlayer@ pPlayer
   {
     get const { return m_pPlayer; }
@@ -241,6 +304,7 @@ final class AFK_Data
             
             justStarted=false;
             secondsAFK=0;
+            secondsLastWarn=0;
             g_SecondsTracker[szSteamID] = secondsAFK;
             afkstatus = NOTAFK;
             
@@ -264,20 +328,27 @@ final class AFK_Data
             
             secondsAFK+=1;
             g_SecondsTracker[szSteamID] = secondsAFK;
+            secondsLastWarn+=1;
             if (g_ShouldKick.GetBool())
+            {
                secondsUntilKick = g_SecondsUntilKick.GetInt()-secondsAFK;
+               
+                if (secondsUntilKick < g_WarnInterval.GetInt())
+                {
+                    if (g_WarnIntervals_Sub.find(secondsUntilKick)!=-1)
+                       sub_interval=true;
+                }
+            }
             
             //If not observing, and should be observing: force observe
             if ( afkstatus!=AFKSPEC && g_ShouldSpec.GetBool())
             {
               
               secondsUntilSpec = g_SecondsUntilSpec.GetInt()-secondsAFK;
-              //int test = g_WarnInterval.GetInt()%secondsUntilSpec;
-              //g_PlayerFuncs.ClientPrintAll(HUD_PRINTTALK,string(secondsUntilSpec)+ " " + string(test) + "\n");
-              if (secondsUntilSpec <= g_WarnInterval.GetInt() and secondsUntilSpec>0)
+              if (secondsUntilSpec < g_WarnInterval.GetInt())
               {
-                 if ((g_WarnInterval.GetInt()%secondsUntilSpec)==0)
-                    sub_interval=true;
+                  if (g_WarnIntervals_Sub.find(secondsUntilSpec)!=-1)
+                     sub_interval=true;
               }
               
               if (secondsUntilSpec<=0)
@@ -286,6 +357,7 @@ final class AFK_Data
                 g_AdminControl.KillPlayer(pPlayer, 0);
                 MoveToSpectate();
                 MessageWarnAllPlayers(pPlayer, (szPlayerName) + " is AFK.");
+                secondsLastWarn = 0;
                 
                 bool player_kickable = g_ShouldKick.GetBool();
                 if (player_kickable and !g_KickAdmins.GetBool())
@@ -300,16 +372,20 @@ final class AFK_Data
                     
                     //If they're about to be kicked, give them 20 seconds to do something
                     if (secondsUntilKick<=20)
+                    {
+                       secondsLastWarn=g_WarnInterval.GetInt();
                        secondsAFK=g_SecondsUntilKick.GetInt()-20;
+                    }
                 }
         
               }
-              else if (secondsUntilSpec<=5 || sub_interval || (secondsUntilSpec%g_WarnInterval.GetInt())==0)
+              else if (secondsLastWarn >= g_WarnInterval.GetInt() || secondsUntilSpec<=3 || sub_interval)
               {
                 MessageWarnPlayer(pPlayer, GetStringTimeAuto(secondsUntilSpec) + " until you become a spectator.");
                 g_PlayerFuncs.ClientPrint(pPlayer, HUD_PRINTCENTER, GetStringTimeAuto(secondsUntilSpec) + " until you become a spectator.");
-                if (secondsUntilSpec<=5 || sub_interval)
-                   g_SoundSystem.PlaySound(pPlayer.edict(), CHAN_STREAM, g_warningsound, 1.0f, 0.0f, 0, 100, pPlayer.entindex());
+                if (secondsUntilSpec<=3 || sub_interval)
+                   g_SoundSystem.PlaySound(pPlayer.edict(), CHAN_AUTO, g_warningsound, 1.0f, 0.0f, 0, 100, pPlayer.entindex());
+                secondsLastWarn = 0;
               }
         
             
@@ -317,12 +393,6 @@ final class AFK_Data
             // Check for kick conditions
             else if (g_ShouldKick.GetBool() && (g_KickAdmins.GetBool() || !isAdmin))
             {
-            
-                 if (secondsUntilKick <= g_WarnInterval.GetInt() and secondsUntilKick>0)
-                 {
-                    if ((g_WarnInterval.GetInt()%secondsUntilKick)==0)
-                       sub_interval=true;
-                 }
               
                  if (secondsUntilKick<=0)
                  {
@@ -331,11 +401,12 @@ final class AFK_Data
                      secondsAFK=0;
                      g_EngineFuncs.ServerCommand("kick #" + szSteamID + "  You were AFK for too long." + "\n");
                  }
-                 else if (secondsUntilKick<=5 || sub_interval || (secondsUntilKick%g_WarnInterval.GetInt())==0 )
+                 else if (secondsLastWarn >= g_WarnInterval.GetInt() || secondsUntilKick<=3 || sub_interval)
                  {
                    MessageWarnPlayer(pPlayer, GetStringTimeAuto(secondsUntilKick) + " until you are kicked.");
-                   if (secondsUntilKick<=5 || sub_interval)
-                      g_SoundSystem.PlaySound(pPlayer.edict(), CHAN_STREAM, g_warningsound, 1.0f, 0.0f, 0, 100, pPlayer.entindex());
+                   if (secondsUntilKick<=3 || sub_interval)
+                      g_SoundSystem.PlaySound(pPlayer.edict(), CHAN_AUTO, g_warningsound, 1.0f, 0.0f, 0, 100, pPlayer.entindex());
+                   secondsLastWarn = 0;
                  }
             
             }
@@ -396,6 +467,8 @@ final class AFK_Data
     if (m_secondsAFK<0)
        m_secondsAFK = 0;
     
+    m_secondsLastWarn = 0;
+    
     if (g_ShouldSpec.GetBool() && m_secondsAFK>=g_SecondsUntilSpec.GetInt())
     {
        MoveToSpectate();
@@ -436,6 +509,17 @@ void MapInit()
 {
   g_Game.PrecacheGeneric("sound/" + g_warningsound);
   g_SoundSystem.PrecacheSound(g_warningsound);
+  
+  g_WarnIntervals_Sub.resize(0);
+  int temp_interval = g_WarnInterval.GetInt();
+  while (temp_interval > 3)
+  {
+     temp_interval = int(temp_interval/2);
+     if (temp_interval <=3)
+        break;
+     g_WarnIntervals_Sub.insertLast(temp_interval);
+  }
+  
 }
 
 void MapActivate()

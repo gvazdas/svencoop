@@ -72,7 +72,11 @@ Player mouse movement and chat messages will reset the AFK timer.
 
 https://github.com/MrOats/AngelScript_SC_Plugins
 
-Admins can type .respawnall in console to force respawn all players.
+## Commands
+
+.respawnall - admin command to respawn all players (if there is a valid spawn point).
+
+.reviveall - admin command to revive all players. If they die within 1 second of being revived, they are teleported to a player that is alive and revived again.
 
 # Loading music
 

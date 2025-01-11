@@ -150,7 +150,7 @@ void print_cs(CBasePlayer@ pPlayer)
         return;
     g_PlayerFuncs.ClientPrint(pPlayer, HUD_PRINTCONSOLE, "To download the latest version go to https://github.com/gvazdas/svencoop\n");
     
-    CBasePlayer@ pBot = g_PlayerFuncs.CreateBot("Dipshit");
+    //CBasePlayer@ pBot = g_PlayerFuncs.CreateBot("Dipshit");
     
     NetworkMessage title( MSG_ONE_UNRELIABLE, NetworkMessages::ServerName, pPlayer.edict() );
     title.WriteString("Chatsounds (v1.23) Tutorial");
