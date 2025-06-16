@@ -117,13 +117,40 @@ void afk_command(const CCommand@ pArgs)
 
 void afk(const CCommand@ pArgs, CBasePlayer@ pPlayer)
 {
-    g_PlayerFuncs.ClientPrint(pPlayer, HUD_PRINTCONSOLE, "[AFK] version 2025-01-11\n");
+    g_PlayerFuncs.ClientPrint(pPlayer, HUD_PRINTCONSOLE, "[AFK] version 2025-03-16\n");
     g_PlayerFuncs.ClientPrint(pPlayer, HUD_PRINTCONSOLE, "For the latest version go to https://github.com/gvazdas/svencoop\n");
     g_PlayerFuncs.ClientPrint(pPlayer, HUD_PRINTCONSOLE, "For the latest version go to https://github.com/gvazdas/svencoop\n");
     
     //CBasePlayer@ pBot = g_PlayerFuncs.CreateBot("Dipshit");
     
 }
+
+void gib_player(CBasePlayer@ pPlayer)
+{
+    if (pPlayer.IsConnected() and pPlayer !is null)
+    {
+        g_EntityFuncs.SpawnRandomGibs(pPlayer.pev,Math.RandomLong(10,100), 1);
+        if (pPlayer.IsAlive())
+        {
+           //pPlayer.Killed(pPlayer.pev,GIB_ALWAYS);
+           pPlayer.TakeDamage(pPlayer.pev,pPlayer.pev,5000.0f,DMG_ALWAYSGIB);
+           //g_AdminControl.KillPlayer(pPlayer,0.0f);
+           //pPlayer.pev.deadflag = DEAD_DYING;
+           //pPlayer.CallGibMonster();
+           //pPlayer.GibMonster();
+           //pPlayer.pev.renderamt = 0;
+           //pPlayer.pev.health = 0;
+           //pPlayer.pev.armorvalue = 0;
+           //g_SoundSystem.PlaySound( pPlayer.edict(), CHAN_AUTO, "common/bodysplat.wav", 1.0f, 1.0f );
+           
+           if (pPlayer.IsAlive())
+           {
+              pPlayer.Killed(pPlayer.pev,GIB_ALWAYS);
+           }
+           
+        }
+    }
+} 
 
 final class AFK_Data
 {
@@ -310,6 +337,12 @@ final class AFK_Data
             
             if (playerObserving)
             {
+              if (pPlayer.m_flRespawnDelayTime!=0)
+              {
+                 MessageWarnAllPlayers(pPlayer, szPlayerName + " has returned.");
+                 //pPlayer.pev.netname = string_t(szPlayerName);
+                 //pPlayer.SendScoreInfo();
+              }
               pPlayer.m_flRespawnDelayTime = 0;
               pPlayer.pev.nextthink = g_Engine.time;
               g_PlayerFuncs.ClientPrint(pPlayer, HUD_PRINTCENTER, "");
@@ -354,9 +387,30 @@ final class AFK_Data
               if (secondsUntilSpec<=0)
               {
                 
-                g_AdminControl.KillPlayer(pPlayer, 0);
+                //g_AdminControl.KillPlayer(pPlayer, 0);
+                gib_player(pPlayer);
                 MoveToSpectate();
-                MessageWarnAllPlayers(pPlayer, (szPlayerName) + " is AFK.");
+                if (szPlayerName.ToLowercase()=="shaunofthelive")
+                {
+                   MessageWarnAllPlayers(pPlayer, "ShaunOfTheLive has gone ShaunOfTheAFK.");
+                   //pPlayer.pev.netname = string_t("ShaunOfTheAFK");
+                }
+                else if (szPlayerName.ToLowercase()=="keyboard argonian")
+                {
+                    MessageWarnAllPlayers(pPlayer, "Keyboard Argonian has gone Away From Keyboard Argonian.");
+                    //pPlayer.pev.netname = string_t("Away From Keyboard Argonian");
+                }
+                else if (szPlayerName.ToLowercase()=="gvazdas")
+                {
+                    MessageWarnAllPlayers(pPlayer, "gvazdas may be stupid.");
+                    //pPlayer.pev.netname = string_t(string(pPlayer.pev.netname) + " (stupid)");
+                }
+                else
+                {
+                   MessageWarnAllPlayers(pPlayer, string(pPlayer.pev.netname) + " is AFK.");
+                   //pPlayer.pev.netname = string_t(string(pPlayer.pev.netname) + " (AFK)");
+                }
+                //pPlayer.SendScoreInfo();
                 secondsLastWarn = 0;
                 
                 bool player_kickable = g_ShouldKick.GetBool();

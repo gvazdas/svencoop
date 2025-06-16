@@ -1,37 +1,26 @@
-//Original code written by incognico (2022). Heavily modified by gvazdas (2024).
+//Original code written by incognico (2022). Heavily modified by gvazdas (2024-2025).
 //incognico wrote the readsounds and listsounds functions
 
 // (gvazdas) Credits:
 // Thanks to Vent Xekart, zyiks, IronBar, Robotnik, AriesToffle, ngh, mumblzz, ShaunOfTheLive, Keyboard Argonian, Chance for testing and help
 // Thanks to everyone in the Sven Co-Op Developers Discord for helping with goldsource non-sense
-// Extreme thanks to Reagy and IronBar for hosting our Sven Co-Op events
+// Extreme thanks to Reagy, IronBar and ngh for hosting our Sven Co-Op events
 // Created for the Knockout.chat community
 
 // TO DO LIST
 // 1. Allow players to mute other players: .csmute - specify part of nickname, or steamid. Internally it should always lock to steamid.
 // 2. Allow players to reduce frequency of playing chatsounds: .cscooldown.
 
-// General variables - modify as you wish
+//////////////////////////////////////////////////////////////////////////////////////////////
+
+// INPUTS - Customize script behavior here
+
 const string g_SpriteName = 'sprites/chat/funny.spr'; // set to empty string if you want no sprite
 const string g_SoundFile = "scripts/plugins/cfg/ChatSounds.txt"; // .txt file containing triggers and their sound file paths
-const bool admin_only = false; //if true, allow only admins to trigger chat sounds
-const bool pitch_control = true; // false to disable chatsounds pitch control
-const bool delay_control = true; // false to disable chatsounds delay control
-const bool enable_silent = true; // true allows players to hide chatsounds text in chat by adding "s" after trigger
-const bool trigger_explicit = true; // prevents players from accidentally triggering chatsounds if their chat messages are long enough.
-
-// Anti-spam and audio de-clutter tools - modify as you wish
-const float g_Delay = 0.45f; //minimum time in seconds between chat sounds for each player
-const bool ignore_delay = false; // ignore g_Delay allowing players to spam non-event sounds infinitely. cannot recommend for public servers.
-const bool delay_shared = false; // extreme anti-spam measure; forces all players to run on the same g_Delay timer
-const bool interrupt_event_spam = true; // interrupt event sounds emitted by player if their last event hasn't ended
-const bool event_no_overlap = true; // each sound in triggers_no_overlap can be played only by one person at any time in the whole server.
-const bool event_exclusive = false; // if true, only one event type sound can be played at any time in the whole server. (see interrupt_dict)
-const bool event_no_other_sounds = true; //if true, players emitting an event sound cannot emit any sounds until their event is over.
-const bool player_die_interrupt = false; // if true, when player dies, forces sounds not in CHAN_AUTO to cut off
-const bool chatsounds_only_alive = false; // if true, only alive players can emit chat sounds
-const bool interrupt_dict_nodelay = false; // force delay=0 for triggers specified in interrupt_dict
-const bool no_overlap = false; // all chatsounds play in CHAN_STREAM, each player can play only one sound at a time.
+const float g_Delay = 0.25f; //minimum time in seconds between chat sounds for each player
+float check_period = 1.0f; // seconds; how often to run periodic_check(). smaller number means more strain on server
+const int min_pitch = 50; // minimum audio pitch (0)
+const int max_pitch = 200; // maximum audio pitch (255)
 
 // Extra fun features - modify as you wish
 const bool spawnsounds_enable = true; // false to disable spawn sounds when player spawns with a glock
@@ -61,6 +50,40 @@ const bool mymovie_enable = true; // false to disable "mymovie"
 const bool doot_enable = true; // false to disable "doot"
 const bool fku_nou_enable = true; // false to disable fku nou game
 const bool bazinga_enable = true; // false to disable bazinga laugh track response
+const bool urdead_enable = true; // false to disable "urdead" timing game
+const bool truck_enable = true; // false to disable "truck"
+
+// bool settings controllable with .csadmin command
+dictionary g_bool_cvars =
+{
+{"admin_only", false}, //if true, allow only admins to trigger chat sounds
+{"pitch_control", true}, // false to disable chatsounds pitch control
+{"delay_control", true}, // false to disable chatsounds delay control
+{"enable_silent", true}, // true allows players to hide chatsounds text in chat by adding "s" after trigger
+{"trigger_explicit", true}, // prevents players from accidentally triggering chatsounds if their chat messages are long enough.
+{"ignore_delay", false}, // ignore g_Delay allowing players to spam non-event sounds infinitely. cannot recommend for public servers.
+{"delay_shared", false}, // extreme anti-spam measure; forces all players to run on the same g_Delay timer
+{"interrupt_event_spam", true}, // interrupt event sounds emitted by player if their last event hasn't ended
+{"event_no_overlap", false}, // each sound in triggers_no_overlap can be played only by one person at any time in the whole server.
+{"event_exclusive", false}, // if true, only one event type sound can be played at any time in the whole server. (see interrupt_dict)
+{"event_no_other_sounds", true}, //if true, players emitting an event sound cannot emit any sounds until their event is over.
+{"player_die_interrupt", false}, // if true, when player dies, forces sounds not in CHAN_AUTO to cut off
+{"chatsounds_only_alive", false}, // if true, only alive players can emit chat sounds
+{"interrupt_dict_nodelay", false}, // force delay=0 for triggers specified in interrupt_dict
+{"no_overlap", false}, // all chatsounds play in CHAN_STREAM, each player can play only one sound at a time.
+{"truck_killall", false}, // allow non admins to destroy shit and kill players with "truck"
+//{"funky_spin", true}, // "funky" forces npcs to spin, probably breaks stuff
+{"heavy_ass", true}, // saying "my ass is heavy" will cause player fall to be fast and fatal
+{"heavy_crush", true} // player heavy ass will crush anything it intersects
+};
+
+bool get_bool_cvar(string label)
+{
+   bool result = false;
+   if (g_bool_cvars.exists(label))
+      result = bool(g_bool_cvars[label]);
+   return result;
+}
 
 // Unfinished stuff here, enable at your own peril.
 const bool multitrigger_individual = false;
@@ -77,7 +100,7 @@ const dictionary interrupt_dict =
 {'petition',1.0f},
 {'bug',2.0f},
 {'bimbos',0.5f},
-{'payne',1.0f},
+//{'payne',1.0f},
 {'duke',1.0f},
 {'thinking',1.0f},
 {'caramel',15.0f},
@@ -118,8 +141,10 @@ const dictionary interrupt_dict =
 {"lamour", 6.0f},
 {"fku", 2.0f},
 {"fuckbees", 6.5f},
-{"bazinga", 2.0f},
-{"seinfeld", 3.0f}
+{"bazinga", 5.0f},
+{"seinfeld", 3.0f},
+{"urdead", 3.0f},
+{"truck", 5.0f}
 };
 
 // if event_no_overlap=true, sounds played by triggers in triggers_no_overlap will not be allowed to overlap between players.
@@ -129,8 +154,16 @@ const array<string> triggers_no_overlap =
 "standing", "wtfboom", "careless", "speed", "funky", "vengabus", "sciteam",
 "iamthestorm", "war!", "kickgum", "bandit", "scha", "godhand",
 "wombo", "duke2", "rules", "damedane", "isdead", "onlything",
-"iamthestorm", "tbc", "hero", "hammy", "nomatter", "basedcringe", "lamour", "caramel", "weartie", "seinfeld", "bazinga"
+"iamthestorm", "tbc", "hero", "hammy", "nomatter", "basedcringe", "lamour", "caramel", "weartie",
+"seinfeld", "bazinga", "urdead", "sciteam"
 };
+
+// END INPUTS
+
+//////////////////////////////////////////////////////////////////////////////////////////////
+
+//float max_event_duration = 65.0f*100.0f/float(min_pitch);
+float max_event_duration = 10.0f;
 
 //// 
 
@@ -151,9 +184,10 @@ void print_cs(CBasePlayer@ pPlayer)
     g_PlayerFuncs.ClientPrint(pPlayer, HUD_PRINTCONSOLE, "To download the latest version go to https://github.com/gvazdas/svencoop\n");
     
     //CBasePlayer@ pBot = g_PlayerFuncs.CreateBot("Dipshit");
+    //bool print_chat = chatsounds_logic(pBot,"standing");
     
     NetworkMessage title( MSG_ONE_UNRELIABLE, NetworkMessages::ServerName, pPlayer.edict() );
-    title.WriteString("Chatsounds (v1.23) Tutorial");
+    title.WriteString("Chatsounds (v1.33) Tutorial");
     title.End();
     
     uint iChars = 0;
@@ -171,13 +205,16 @@ void print_cs(CBasePlayer@ pPlayer)
     szMessage = szMessage + "More commands (chat or console):" + "\n\n";
     
     szMessage = szMessage + ".csmenu page" + "\n";
-    szMessage = szMessage + "-> Opens page (default 1) of menu displaying all chatsounds; .csmenu hgrunt shows only HECU sounds." + "\n";
+    szMessage = szMessage + "-> opens page (default 1) of menu displaying all chatsounds; .csmenu hgrunt shows only HECU sounds." + "\n";
     
     szMessage = szMessage + ".listsounds" + "\n";
-    szMessage = szMessage + "-> Lists all chatsounds in console; .listsounds hgrunt lists only HECU sounds." + "\n";
+    szMessage = szMessage + "-> lists all chatsounds in console; .listsounds hgrunt lists only HECU sounds." + "\n";
     
     szMessage = szMessage + ".csvolume number" + "\n";
-    szMessage = szMessage + "-> number (default 1.0) sets volume of chatsounds between 0.0 and 1.0." + "\n\n";
+    szMessage = szMessage + "-> number (default 1.0) sets volume of chatsounds between 0.0 and 1.0." + "\n";
+    
+    szMessage = szMessage + ".csadmin" + "\n";
+    szMessage = szMessage + "-> opens the admin front panel. Allows some settings to be toggled ON/OFF." + "\n\n";
     
     szMessage = szMessage + "https://github.com/gvazdas/svencoop to download and customize this plugin for your own server.";
     
@@ -452,6 +489,102 @@ void csvolume(CBasePlayer@ pPlayer, string full_msg)
 
 //// 
 
+// .csadmin
+
+CTextMenu@ g_csadmin_menu = null;
+
+void csadmin_menu( CTextMenu@ menu, CBasePlayer@ pPlayer, int iSlot, const CTextMenuItem@ pItem )
+{
+    
+    if (menu is null or !menu.IsRegistered() or pPlayer is null or iSlot==10)
+        return;
+    
+    array<string> parsed = pItem.m_szName.Split(" ");
+    
+    if (parsed.length()>0 and g_PlayerFuncs.AdminLevel(pPlayer)>=ADMIN_YES)
+    {
+    
+        string cvar_label = parsed[0];
+        
+        // Open the menu back in the exact same place
+        int trigger_index = g_bool_cvars_keys.find(cvar_label);
+        
+        if (trigger_index>=0)
+        {
+            
+            bool new_bool = !get_bool_cvar(cvar_label);
+            g_bool_cvars[cvar_label] = new_bool;
+            g_csadmin_menu.Unregister();
+            
+            string text_status = "";
+            if (new_bool)
+               text_status = "-> ON";
+            else
+               text_status = "-> OFF";
+            
+            
+            g_PlayerFuncs.ClientPrintAll(HUD_PRINTTALK, "[chatsounds] "+cvar_label+" "+text_status+"\n"); 
+            g_EngineFuncs.ServerPrint("[chatsounds] " + string(pPlayer.pev.netname) + " set " + cvar_label + " " + text_status + "\n");
+            
+        }
+        
+        int page = int(Math.Floor(float(trigger_index)/7.0f));
+        //g_csadmin_menu.Open(0,page,pPlayer);
+        //csadminmenu(pPlayer,string(page+1));
+        g_Scheduler.SetTimeout("csadminmenu",0.01f,@pPlayer,string(page+1)); //game crashes without timeout - IDK
+    }
+
+}
+
+CClientCommand g_csadmin("csadmin", "open chatsounds admin menu", @csadmin_command);
+
+void csadmin_command(const CCommand@ pArgs)
+{
+     
+	CBasePlayer@ pPlayer = g_ConCommandSystem.GetCurrentPlayer();
+	
+	const int numArgs = pArgs.ArgC();
+	int page = 1;
+	string pageArg = "";
+	if (numArgs>1)
+	   pageArg= pArgs.Arg(1).ToLowercase();
+	csadminmenu(pPlayer,pageArg);
+}
+
+void csadminmenu(CBasePlayer@ pPlayer,string pageArg="")
+{
+    
+    if (g_csadmin_menu is null or !g_csadmin_menu.IsRegistered())
+    {
+        @g_csadmin_menu = CTextMenu(@csadmin_menu);
+        g_csadmin_menu.SetTitle("chatsounds admin ");
+        
+        string temp_key;
+        for (uint i = 0; i < g_bool_cvars_keys.length(); ++i)
+        {
+           temp_key = g_bool_cvars_keys[i];
+           string state = string(bool(g_bool_cvars[temp_key]));
+           g_csadmin_menu.AddItem(temp_key + " " + state);
+        }
+        
+        g_csadmin_menu.Register();
+    }
+    
+    int page = 1;
+    if (pageArg.Length()>0)
+       page = atoi(pageArg);
+    
+    int numpages = int(g_csadmin_menu.GetPageCount());
+    if (page<1)
+       page=1;
+    else if (page>numpages)
+       page=numpages;
+    
+    g_csadmin_menu.Open(0,page-1,pPlayer);
+}
+
+//// 
+
 // .csmenu
 
 CTextMenu@ g_hgrunt_menu;
@@ -574,8 +707,204 @@ void listsounds(CBasePlayer@ pPlayer, string special="")
 
 
 
+////
 
+// "truck"
 
+const float duration_truck1 = 3.3f;
+const float truck_updatetime = 0.01f;
+const float t_truck_lifetime = 5.0f; //max lifetime of truck
+
+const string g_sprite_truck = "sprites/chat/truck.spr";
+
+const array<string> g_soundfiles_truck =
+{
+"chat/up13/truck1.wav",
+"chat/up13/truck2.wav"
+};
+
+int truck_kills = 0;
+float t_truck_start=0.0f;
+
+// Optimization
+array<int> i_destroyable_entities;
+void update_i_destroyable_entities()
+{
+    i_destroyable_entities.resize(0);
+    for (int i = 1; i < (g_Engine.maxEntities); i++)
+    {
+      CBaseEntity@ pEntity = g_EntityFuncs.Instance(g_EngineFuncs.PEntityOfEntIndex(i));
+      if (pEntity !is null and pEntity.IsInWorld() and (pEntity.IsMonster() or pEntity.IsPlayer() or pEntity.IsBreakable()) and pEntity.pev.takedamage>DAMAGE_NO )
+      {
+         i_destroyable_entities.insertLast(i);
+      }
+    } 
+}
+
+CSprite@ create_truck_pPlayer(CBasePlayer@ pPlayer, int pitch=100)
+{
+    
+    CSprite@ truck_sprite;
+    
+    if (!pPlayer.GetObserver().IsObserver() && pPlayer.IsConnected())
+    {
+        float skull_scale = 1.25f;
+        Vector sprite_location = pPlayer.GetOrigin();
+        sprite_location.z += 10.0f;
+        @truck_sprite = g_EntityFuncs.CreateSprite(g_sprite_truck,sprite_location,false,0.0f);
+        truck_sprite.pev.rendercolor = Vector(255,255,255);
+        truck_sprite.pev.renderamt = 255.0f; 
+        truck_sprite.pev.rendermode = 0;
+        float random_multiplier = Math.RandomFloat(800.0f,1300.0f)/(100.0f/float(pitch));
+        Vector skull_velocity = pPlayer.GetAutoaimVector(0.0f).opMul(random_multiplier);
+        truck_sprite.pev.velocity = skull_velocity;
+        truck_sprite.SetScale(skull_scale);
+        
+        //g_PlayerFuncs.ClientPrintAll(HUD_PRINTTALK, "truck entity created\n");
+        
+    }
+    
+    return truck_sprite;
+
+}
+
+// Check if target_entity has line of sight with vecStart
+bool line_of_sight(Vector vecStart, CBaseEntity@ target_entity, IGNORE_MONSTERS igmon, IGNORE_GLASS ignoreGlass)
+{
+    
+    if (target_entity is null)
+    {
+        return false;
+    }
+    
+    TraceResult tr;
+    
+    g_Utility.TraceLine(vecStart, target_entity.pev.origin, igmon, ignoreGlass, target_entity.edict(), tr);
+    
+    if (tr.flFraction != 1.0)
+       return false;
+    else
+       return true;
+
+}
+
+void truck_update(CBasePlayer@ pPlayer,Vector initial_origin, CSprite@ truck_sprite, bool destroyStuff=false)
+{
+   
+   //g_PlayerFuncs.ClientPrintAll(HUD_PRINTTALK, "truck update\n");
+   
+   if (truck_sprite is null)
+   {
+      //g_PlayerFuncs.ClientPrintAll(HUD_PRINTTALK, "truck goodbye null\n");
+      return;
+   }
+   
+   else if ( (g_EngineFuncs.Time()-t_truck_start)>t_truck_lifetime or pPlayer is null )
+   {
+       sprite_delete(truck_sprite);
+       //g_PlayerFuncs.ClientPrintAll(HUD_PRINTTALK, "truck goodbye lifetime\n");
+       return;
+   }
+
+   //else if (!truck_sprite.FVisibleFromPos(initial_origin,truck_sprite.pev.origin)) // legacy function - apparently is being cut soon.
+   else if (!line_of_sight(initial_origin,cast<CBaseEntity@>(truck_sprite),ignore_monsters,dont_ignore_glass))
+   {
+     sprite_delete(truck_sprite);
+     //g_PlayerFuncs.ClientPrintAll(HUD_PRINTTALK, "truck goodbye sight\n");
+     return;
+   }
+   
+   if (destroyStuff and i_destroyable_entities.length()>0)
+   {
+    
+        for (uint i = 0; i < i_destroyable_entities.length(); i++)
+        {
+        
+            CBaseEntity@ pEntity = g_EntityFuncs.Instance(g_EngineFuncs.PEntityOfEntIndex(i_destroyable_entities[i]));
+            if (pEntity !is null and pEntity.IsInWorld() and truck_sprite.Intersects(pEntity))
+            {
+                
+                if (pEntity.IsPlayer())
+                {
+                   CBasePlayer@ pPlayer2 = cast<CBasePlayer@>(pEntity);
+                   if (pPlayer!=pPlayer2)
+                   {
+                       if (pEntity.IsAlive())
+                       {
+                           gib_player(pPlayer2);
+                           i_destroyable_entities.removeAt(i); // prevent more than one interaction
+                           truck_kills+=1;
+                           announce_kill(pPlayer,truck_kills,100);
+                       }
+                   }
+                }
+                else if (pEntity.IsBreakable() and pEntity.pev.takedamage>DAMAGE_NO)
+                {
+                    pEntity.TakeDamage(pPlayer.pev,pPlayer.pev,10000.0f,DMG_GENERIC);
+                    i_destroyable_entities.removeAt(i); // prevent more than one interaction
+                }
+                else
+                {
+                    CBaseMonster@ pMonster = cast<CBaseMonster@>(pEntity);
+                    if (pMonster !is null)
+                    {
+                        if (!pMonster.IsPlayerAlly() and pMonster.pev.takedamage>DAMAGE_NO)
+                        {
+                           if (pEntity.IsAlive())
+                           {
+                               truck_kills+=1;
+                               announce_kill(pPlayer,truck_kills,100);
+                           }
+                           pMonster.CallGibMonster();
+                           i_destroyable_entities.removeAt(i); // prevent more than one interaction
+                           
+                        }
+                        else if (pEntity.IsAlive())
+                        {
+                           monster_pain(pMonster);
+                        }
+                    }
+                }
+                
+            
+            }
+            
+        }
+    
+   }
+   
+   g_Scheduler.SetTimeout("truck_update",truck_updatetime,@pPlayer,initial_origin,@truck_sprite,destroyStuff);
+   
+}
+
+void spawn_truck(CBasePlayer@ pPlayer,int pitch=100)
+{
+    //g_PlayerFuncs.ClientPrintAll(HUD_PRINTTALK, "truck spawn\n");
+    CSprite@ pPlayer_truck = create_truck_pPlayer(pPlayer,pitch);
+    if (pPlayer_truck !is null)
+    {
+        bool destroyStuff = (g_PlayerFuncs.AdminLevel(pPlayer)>=ADMIN_YES or get_bool_cvar("truck_killall"));
+        if (destroyStuff)
+           update_i_destroyable_entities(); //optimization
+        t_truck_start=g_EngineFuncs.Time();
+        truck_update(@pPlayer,pPlayer.GetOrigin(),pPlayer_truck,destroyStuff);
+    }
+    
+    
+}
+
+void truck_start(CBasePlayer@ pPlayer, int pitch=100)
+{
+    float random_delay = Math.RandomFloat(-0.3f,1.0f);
+    float t_end_stage1 = duration_truck1*(100/float(pitch)) + random_delay;
+    
+    g_Scheduler.SetTimeout("play_sound_static",t_end_stage1,
+    @pPlayer,g_soundfiles_truck[1],1.0f,0.3f,pitch,true,true,false);
+    
+    g_Scheduler.SetTimeout("spawn_truck",t_end_stage1+0.2f*(100/float(pitch)),@pPlayer,pitch);
+    
+    //g_PlayerFuncs.ClientPrintAll(HUD_PRINTTALK, "truck starting\n");
+}
 
 ////
 
@@ -605,6 +934,31 @@ void nishiki_end()
 {
 nishiki = false;
 nishiki_timing=false;
+}
+
+/////////////////
+
+// "urdead" - urdead timing game
+
+bool urdead = false;
+bool urdead_sweet = false;
+const float urdead_delay = 0.85f; 
+const float urdead_hold = 0.39f;
+
+void start_urdead_sweet()
+{
+urdead_sweet=true;
+}
+
+void end_urdead_sweet()
+{
+urdead_sweet=false;
+}
+
+void end_urdead()
+{
+urdead=false;
+urdead_sweet=false;
 }
 
 /////////////////
@@ -647,12 +1001,12 @@ const array<string> g_soundfiles_announcer_kills =
 "chat/ut99/monsterkill.wav"
 };
 
-void announce_kill(CBasePlayer@ pPlayer)
+void announce_kill(CBasePlayer@ pPlayer,int num_kills=0,int pitch=100)
 {
    if ((num_kills-2)<int(g_soundfiles_announcer_kills.length()) and num_kills>=2)
    {
       play_sound(pPlayer,CHAN_MUSIC,g_soundfiles_announcer_kills[num_kills-2],
-      0.5f,0.0f,fku_pitch,false,true,false);
+      0.5f,0.0f,pitch,false,true,false);
    }
 }
 
@@ -849,6 +1203,8 @@ const string g_soundfile_unatco_music = "chat/up11/unatco.wav";
 void play_unatco_music(CBasePlayer@ pPlayer)
 {
    play_sound_stream(pPlayer,g_soundfile_unatco_music,0.7f,0.3f,100,true,true);
+   player_soundevent[pPlayer.entindex()-1]="unatco";
+   g_Scheduler.SetTimeout("pPlayer_event_update",unatco_music_duration,@pPlayer,"unatco",false);
    unatco_music = true;
 }
 
@@ -947,7 +1303,7 @@ const array<string> g_soundfiles_bazinga =
 "vox/lol.wav",
 "hgrunt/c2a3_hg_laugh.wav",
 "chat/astlol.wav",
-"chat/up/scha.wav",
+//"chat/up/scha.wav",
 "chat/dxdead.wav",
 "chat/demol.wav",
 "chat/spyl.wav"
@@ -987,6 +1343,8 @@ const array<string> g_soundfiles_payne =
 void play_payne_music(CBasePlayer@ pPlayer)
 {
    play_sound_stream(pPlayer,g_soundfile_payne_music,0.7f,0.3f,100,true,true);
+   player_soundevent[pPlayer.entindex()-1]="payne_music";
+   g_Scheduler.SetTimeout("pPlayer_event_update",payne_music_duration,@pPlayer,"payne_music",false);
    payne_music = true;
 }
 
@@ -1158,8 +1516,12 @@ void race_end()
          		
          		 if (localVol > 0)
          	     {
-         	        g_SoundSystem.PlaySound(pPlayer.edict(), CHAN_STREAM, get_trigger_snd_file("nice"),
-         	        localVol, 0.0f, 0, 100, pPlayer.entindex());
+         	        if (player_soundevent[pPlayer.entindex()-1]=="")
+             	        g_SoundSystem.PlaySound(pPlayer.edict(), CHAN_STREAM, get_trigger_snd_file("nice"),
+             	        localVol, 0.0f, 0, 100, pPlayer.entindex());
+         	        else
+             	        g_SoundSystem.PlaySound(pPlayer.edict(), CHAN_AUTO, get_trigger_snd_file("nice"),
+             	        localVol, 0.0f, 0, 100, pPlayer.entindex());
                 }
                   
               }
@@ -1553,7 +1915,7 @@ const array<string> explosives_type3 =
 "weapon_9mmAR"
 };
 
-void explode_pPlayer(CBasePlayer@ pPlayer)
+void wtfboom_pPlayer(CBasePlayer@ pPlayer, int pitch = 100)
 {
 
     int magnitude = 0;
@@ -1561,6 +1923,8 @@ void explode_pPlayer(CBasePlayer@ pPlayer)
     int ammo;
     string weapon_label;
     CBasePlayerWeapon@ pPlayer_weapon;
+    
+    float wtfboom_duration = 8.0f*(100/float(pitch));
     
     // Type 1: ammo only
     for (uint i = 0; i < explosives_type1.length(); i++)
@@ -1658,6 +2022,10 @@ void explode_pPlayer(CBasePlayer@ pPlayer)
            temp_magnitude = Math.RandomLong(10,100);
            g_Scheduler.SetTimeout("create_explosion",t_delay,@pPlayer,temp_magnitude*2);
            magnitude -= temp_magnitude;
+           
+           if (t_delay>wtfboom_duration)
+              break;
+           
         }
         
         if (extra_print)
@@ -1732,7 +2100,6 @@ void crowbar_end(CBasePlayer@ pPlayer, CBasePlayerWeapon@ pPlayer_crowbar)
 // Revolver Ocelot reloading meme
 
 float probability_reload = 0.1f; //probability for sound to play. must be between 0.0f and 1.0f
-float reload_frequency = 0.5f; // seconds; how frequently server is checked for reloading players
 float reload_wait = 8.0f; //how long to wait before attempt to play another reload sound
 
 array<bool> array_reload(g_Engine.maxClients, false); //tracking if player reload was already checked
@@ -1759,54 +2126,191 @@ const array<string> g_soundfiles_reload_revolver =
 "chat/up10/reload_revolver.wav"
 };
 
-void CheckReloads()
+///////
+
+// my ass is heavy makes player accelerate much faster when falling
+
+array<uint> heavy_stage(g_Engine.maxClients, 0);
+float heavy_updaterate_slow = 0.1f;
+float heavy_updaterate_fast = 0.01f;
+//float heavy_goomba_distance = 1000.0f;
+
+void heavy_final_stage(CBasePlayer@ pPlayer)
+{
+heavy_stage[pPlayer.entindex()-1] = 5;
+heavy_check_urgent(pPlayer);
+}
+
+void heavy_check_urgent(CBasePlayer@ pPlayer)
+{
+    
+    uint pPlayer_index = pPlayer.entindex()-1;
+    if (heavy_stage[pPlayer_index]<5)
+    {
+       return;
+    }
+
+    if (heavy_stage[pPlayer_index]==5 and pPlayer.pev.velocity.z<0.0f)
+    {
+        //g_PlayerFuncs.ClientPrintAll(HUD_PRINTTALK,"Setting huge velocity\n"); 
+        pPlayer.pev.velocity.z=-1000000.0f;
+        heavy_stage[pPlayer_index] = 6;
+        
+        if (get_bool_cvar("heavy_crush"))
+           update_i_destroyable_entities();
+        
+        heavy_check_urgent(pPlayer);
+    }
+    else if (heavy_stage[pPlayer_index]>=6 and pPlayer.pev.velocity.z>=0.0f)
+    {
+        //g_PlayerFuncs.ClientPrintAll(HUD_PRINTTALK,"Setting stage 0\n"); 
+        heavy_stage[pPlayer_index] = 0;
+        pPlayer.pev.velocity=Vector(0.0f,0.0f,0.0f);
+        pPlayer.pev.avelocity=Vector(0.0f,0.0f,0.0f);
+        pPlayer.pev.basevelocity=Vector(0.0f,0.0f,0.0f);
+        pPlayer.pev.movedir=Vector(0.0f,0.0f,0.0f);
+        pPlayer.pev.punchangle=Vector(0.0f,0.0f,0.0f);
+        pPlayer.pev.pitch_speed=0.0f;
+        pPlayer.pev.yaw_speed=0.0f;
+        if (pPlayer.IsAlive())
+           gib_player(pPlayer);
+        
+        if (!get_bool_cvar("heavy_crush"))
+           return;
+        
+        //g_PlayerFuncs.ClientPrintAll(HUD_PRINTTALK,"Checking crush ents\n"); 
+        
+        // Catch all alive entities that stopped player, and crush them
+        for (uint i = 0; i < i_destroyable_entities.length(); i++)
+        {
+        
+            CBaseEntity@ pEntity = g_EntityFuncs.Instance(g_EngineFuncs.PEntityOfEntIndex(i_destroyable_entities[i]));
+            //Vector pPlayer_origin = pPlayer.GetOrigin();
+            //float current_distance = pPlayer_origin.opSub(pEntity.GetOrigin()).Length();
+            if (pEntity !is null and pEntity.IsInWorld() and (pPlayer.Intersects(pEntity)) and (pPlayer.pev.origin.z>pEntity.pev.origin.z))
+            {
+                
+                if (pEntity.IsPlayer())
+                {
+                   CBasePlayer@ pPlayer2 = cast<CBasePlayer@>(pEntity);
+                   if (pPlayer!=pPlayer2)
+                   {
+                       if (pEntity.IsAlive())
+                       {
+                           gib_player(pPlayer2);
+                           i_destroyable_entities.removeAt(i); // prevent more than one interaction
+                       }
+                   }
+                }
+                else if (pEntity.IsBreakable() and pEntity.pev.takedamage>DAMAGE_NO)
+                {
+                    pEntity.TakeDamage(pPlayer.pev,pPlayer.pev,10000.0f,DMG_GENERIC);
+                    i_destroyable_entities.removeAt(i); // prevent more than one interaction
+                }
+                else
+                {
+                    CBaseMonster@ pMonster = cast<CBaseMonster@>(pEntity);
+                    if (pMonster !is null)
+                    {
+                        if (!pMonster.IsPlayerAlly() and pMonster.pev.takedamage>DAMAGE_NO)
+                        {
+                           if (pEntity.IsAlive())
+                           pMonster.CallGibMonster();
+                           i_destroyable_entities.removeAt(i); // prevent more than one interaction
+                           
+                        }
+                        else if (pEntity.IsAlive())
+                        {
+                           monster_pain(pMonster);
+                        }
+                    }
+                }
+                
+            
+            }
+            
+        }
+        
+    }
+    else
+    {
+       if (heavy_stage[pPlayer_index] < 6)
+          g_Scheduler.SetTimeout("heavy_check_urgent",heavy_updaterate_slow,@pPlayer);
+       else if (heavy_stage[pPlayer_index] >= 6)
+          g_Scheduler.SetTimeout("heavy_check_urgent",heavy_updaterate_fast,@pPlayer);
+    }
+	   
+}
+
+void periodic_check()
 {
     
     if (arr_active_players.length()<=0)
        return;
-
+    
     for (uint i = 0; i < arr_active_players.length(); i++)
     { 
         
         CBasePlayer@ pPlayer = g_PlayerFuncs.FindPlayerByIndex(arr_active_players[i]);
         
+        //g_PlayerFuncs.ClientPrintAll(HUD_PRINTTALK, string(pPlayer.pev.velocity.ToString()) + "\n");
+        
         if (pPlayer is null)
            continue;
         
-        if ( pPlayer.IsAlive() and probability_reload>0.0f and !array_reload[pPlayer.entindex()-1]  )
+        uint pPlayer_index = pPlayer.entindex()-1;
+        
+        // Check if player is stuck at some soundevent that didn't get its end triggered properly
+        if (player_soundevent[pPlayer_index]!="")
         {
-
-           CBasePlayerWeapon@ pPlayer_weapon = cast<CBasePlayerWeapon@>(pPlayer.m_hActiveItem.GetEntity());
-           if (pPlayer_weapon is null)
-              continue;
-           
-           if (pPlayer_weapon.m_fInReload)
-           {
-              
-              float t_delay = 0.0f;
-              if (Math.RandomFloat(0.0f,1.0f)<probability_reload)
-              {
+            float t = g_EngineFuncs.Time();
+            float d_chat = t - get_ChatTime(pPlayer_index); // last time player tried to trigger a chatsound
+            float d_sound = t - get_SoundTime(pPlayer_index); //last time player emitted a chat sound
+            if (d_chat>max_event_duration or d_sound>max_event_duration)
+            {
+               g_EngineFuncs.ServerPrint("[chatsounds] " + string(pPlayer.pev.netname) + " soundevent manual reset " + player_soundevent[pPlayer_index] +"\n");
+               player_soundevent[pPlayer_index] = "";
+            }
+        }
+        else if (reloadsounds_enable)
+        {
+               
+            if ( pPlayer.IsAlive() and probability_reload>0.0f and !array_reload[pPlayer_index]  )
+            {
+    
+               CBasePlayerWeapon@ pPlayer_weapon = cast<CBasePlayerWeapon@>(pPlayer.m_hActiveItem.GetEntity());
+               if (pPlayer_weapon is null)
+                  continue;
+               
+               if (pPlayer_weapon.m_fInReload and player_soundevent[pPlayer_index]=="")
+               {
                   
-                  CBasePlayerWeapon@ pPlayer_revolver;
-        	      if (pPlayer.HasNamedPlayerItem("weapon_357") !is null)
-            	     @pPlayer_revolver = pPlayer.HasNamedPlayerItem("weapon_357").GetWeaponPtr();
-                  else if (pPlayer.HasNamedPlayerItem("weapon_python") !is null)
-                     @pPlayer_revolver = pPlayer.HasNamedPlayerItem("weapon_python").GetWeaponPtr();
-                  
-                  string snd_file;
-                  if ( pPlayer_revolver !is null and pPlayer_revolver.entindex()==pPlayer_weapon.entindex() )
-                      snd_file = g_soundfiles_reload_revolver[uint(Math.RandomLong(0,g_soundfiles_reload_revolver.length()-1))];
-                  else
-                      snd_file = g_soundfiles_reload[uint(Math.RandomLong(0,g_soundfiles_reload.length()-1))];
+                  float t_delay = 0.0f;
+                  if (Math.RandomFloat(0.0f,1.0f)<probability_reload)
+                  {
                       
-                  t_delay = Math.RandomFloat(0.0f,0.5f);
-                  g_Scheduler.SetTimeout("play_sound_stream",t_delay,@pPlayer,snd_file,1.0f,0.3f,100,true,true,true);
-              }
-           
-              set_pPlayer_reload(pPlayer,true);
-              g_Scheduler.SetTimeout("set_pPlayer_reload",t_delay+reload_wait,@pPlayer,false);
-           }
-
+                      CBasePlayerWeapon@ pPlayer_revolver;
+            	      if (pPlayer.HasNamedPlayerItem("weapon_357") !is null)
+                	     @pPlayer_revolver = pPlayer.HasNamedPlayerItem("weapon_357").GetWeaponPtr();
+                      else if (pPlayer.HasNamedPlayerItem("weapon_python") !is null)
+                         @pPlayer_revolver = pPlayer.HasNamedPlayerItem("weapon_python").GetWeaponPtr();
+                      
+                      string snd_file;
+                      if ( pPlayer_revolver !is null and pPlayer_revolver.entindex()==pPlayer_weapon.entindex() )
+                          snd_file = g_soundfiles_reload_revolver[uint(Math.RandomLong(0,g_soundfiles_reload_revolver.length()-1))];
+                      else
+                          snd_file = g_soundfiles_reload[uint(Math.RandomLong(0,g_soundfiles_reload.length()-1))];
+                          
+                      t_delay = Math.RandomFloat(0.0f,0.5f);
+                      g_Scheduler.SetTimeout("play_sound_stream",t_delay,@pPlayer,snd_file,1.0f,0.3f,100,true,true,true);
+                  }
+               
+                  set_pPlayer_reload(pPlayer,true);
+                  g_Scheduler.SetTimeout("set_pPlayer_reload",t_delay+reload_wait,@pPlayer,false);
+               }
+    
+            }
+        
         }
         
         
@@ -1862,6 +2366,7 @@ void sprite_delete(CSprite@ skull)
 {
     if (skull !is null)
     {
+        //g_PlayerFuncs.ClientPrintAll(HUD_PRINTTALK, "sprite deleted\n");
         skull.SUB_Remove();
     }
 }
@@ -1869,7 +2374,6 @@ void sprite_delete(CSprite@ skull)
 ////
 
 // doot
-
 const string g_doot_sprite = "sprites/chat/doot.spr";
 
 void doot_pPlayer(CBasePlayer@ pPlayer)
@@ -1896,7 +2400,7 @@ void doot_pPlayer(CBasePlayer@ pPlayer)
         //Vector skull_velocity = pPlayer.GetAutoaimVector(0.0f).opMul(random_multiplier);
         //skull.pev.velocity = skull_velocity;
         skull.SetScale(0.2f);
-        g_Scheduler.SetTimeout("sprite_delete",3.0f,@skull);
+        g_Scheduler.SetTimeout("sprite_delete",5.0f,@skull);
     }
 
 }
@@ -2055,6 +2559,8 @@ return snd_file;
 
 ////
 
+array<string> g_bool_cvars_keys;
+
 void PluginInit()
 {
   g_Module.ScriptInfo.SetAuthor("incognico,gvazdas");
@@ -2066,6 +2572,22 @@ void PluginInit()
   g_Hooks.RegisterHook(Hooks::Game::MapChange, @MapChange);
   g_Hooks.RegisterHook(Hooks::Player::PlayerSpawn, @PlayerSpawn);
   g_Hooks.RegisterHook(Hooks::Player::PlayerKilled, @PlayerKilled);
+  
+  g_Hooks.RegisterHook(Hooks::Monster::MonsterTakeDamage, @MonsterTakeDamage);
+  
+  g_bool_cvars_keys = g_bool_cvars.getKeys();
+  g_bool_cvars_keys.sortAsc();
+  
+  //array<string> interrupt_keys;
+  //interrupt_keys = interrupt_dict.getKeys();
+  //for (uint i = 0; i < interrupt_keys.length(); ++i)
+  //{
+  //   float max_dur = float(interrupt_dict[interrupt_keys[i]]) * 100.0f/float(min_pitch);
+  //   if (max_dur>max_event_duration)
+  //      max_event_duration = max_dur;
+  //}
+  
+  //update_csadmin_menu();
   
   // read single-line triggers
   ReadSounds(); // g_SoundList gets populated
@@ -2121,6 +2643,8 @@ void PluginInit()
      g_SoundListKeys.insertLast("lamour");
   if (stalker_enable)
      g_SoundListKeys.insertLast("stalker");
+  if (truck_enable)
+     g_SoundListKeys.insertLast("truck");
   
   g_SoundListKeys.sortAsc();
   
@@ -2168,6 +2692,8 @@ void MapInit()
 {
   
   g_soundfiles_precached.resize(0);
+  
+  max_event_duration = 10.0f;
   
   // Sound files must be precached at every map init.
   
@@ -2228,7 +2754,7 @@ void MapInit()
       preacache_sound_array(g_soundfiles_trap2);
   }
   
-  if (fku_nou_enable)
+  if (fku_nou_enable or truck_enable)
      preacache_sound_array(g_soundfiles_announcer_kills);
   
   //preacache_sound_array(g_soundfiles_100);
@@ -2247,6 +2773,9 @@ void MapInit()
   
   if (stalker_enable)
      preacache_sound_array(g_soundfiles_stalker);
+  
+  if (truck_enable)
+     preacache_sound_array(g_soundfiles_truck);
      
   if (bazinga_enable)
      preacache_sound_array(g_soundfiles_bazinga);
@@ -2278,11 +2807,15 @@ void MapInit()
   }
   
   array_imded = array<bool>(g_Engine.maxClients, false);
-  player_soundevent = array<string>(g_Engine.maxClients, "");
+  player_soundevent = array<string>(g_Engine.maxClients,"");
   array_reload = array<bool>(g_Engine.maxClients, false);
   nishiki_fail = array<bool>(g_Engine.maxClients, false);
   nou_fail = array<bool>(g_Engine.maxClients, false);
   nomatter_fail = array<bool>(g_Engine.maxClients, false);
+  
+  player_soundevent = array<string>(g_Engine.maxClients,"");
+  
+  heavy_stage = array<uint>(g_Engine.maxClients, 0);
   
   update_ChatTime(0,0.0f,true); // reset all ChatTimes to 0
   update_SoundTime(0,0.0f,true);
@@ -2294,6 +2827,14 @@ void MapInit()
   seinfeld_played=false;
   
   end_unatco_music();
+  
+  if (truck_enable)
+  {
+     g_Game.PrecacheGeneric(g_sprite_truck);
+     g_Game.PrecacheModel(g_sprite_truck);
+  }
+  
+  end_urdead();
   
   all_volumes_1=true;
   race_happening = false;
@@ -2312,8 +2853,7 @@ void MapInit()
   
   g_soundfiles_precached.resize(0);
   
-  if (reloadsounds_enable)
-     g_Scheduler.SetInterval("CheckReloads", reload_frequency, g_Scheduler.REPEAT_INFINITE_TIMES);
+  g_Scheduler.SetInterval("periodic_check", check_period, g_Scheduler.REPEAT_INFINITE_TIMES);
    
   hammy_stage=0;
   lamour_stage=0;
@@ -2346,18 +2886,20 @@ bool chatsounds_logic(CBasePlayer@ pPlayer,string fullArg)
    if (pPlayer is null or !pPlayer.IsConnected())
       return false;
    
+   //periodic_check();
+   
    array<string> Args = fullArg.Split(" ");
    int numArgs = Args.length();
 
-   if (numArgs > 0 and (!trigger_explicit or numArgs<=4)) {
+   if (numArgs > 0 and (!get_bool_cvar("trigger_explicit") or numArgs<=4)) {
        
      string soundArg = Args[0].ToLowercase();
      
-     if ( ( g_SoundList.exists(soundArg) or (g_SoundListKeys.find(soundArg)>=0)  or soundArg=="secret" or soundArg=="random") )
+     if ( ( g_SoundList.exists(soundArg) or (g_SoundListKeys.find(soundArg)>=0) or soundArg=="secret" or soundArg=="random") )
      {
        
        // If player is not admin, don't let them trigger chatsounds. 
-       if (admin_only)
+       if (get_bool_cvar("admin_only"))
        {
            if (!bool(g_PlayerFuncs.AdminLevel(pPlayer) >= ADMIN_YES))
               return false;
@@ -2374,7 +2916,7 @@ bool chatsounds_logic(CBasePlayer@ pPlayer,string fullArg)
        float d_sound = t - get_SoundTime(pPlayer_index); //last time player emitted a chat sound
        update_ChatTime(pPlayer_index,t);
        
-       bool chatsound_allow = ((d_chat>=g_Delay and d_sound>=g_Delay) or ignore_delay) and (!event_no_other_sounds or player_soundevent[pPlayer_index]=="");
+       bool chatsound_allow = ((d_chat>=g_Delay and d_sound>=g_Delay) or get_bool_cvar("ignore_delay")) and (!get_bool_cvar("event_no_other_sounds") or player_soundevent[pPlayer_index]=="");
        
        // check exceptions for timing games
        if (!chatsound_allow)
@@ -2392,7 +2934,7 @@ bool chatsounds_logic(CBasePlayer@ pPlayer,string fullArg)
        }
        
        // check if player is alive and whether they should emit the sound
-       if (chatsound_allow and chatsounds_only_alive)
+       if (chatsound_allow and get_bool_cvar("chatsounds_only_alive"))
            if (pPlayer.GetObserver().IsObserver() or !pPlayer.IsAlive())
               chatsound_allow=false;
 
@@ -2413,9 +2955,6 @@ bool chatsounds_logic(CBasePlayer@ pPlayer,string fullArg)
              bool anti_spam = true; // can the sound be interrupted by anti-spam features before it starts playing?
              float t_delay = 0.0f; //time delay between sound trigger activation and sound playing in seconds
              
-             if (no_overlap)
-                audio_channel = CHAN_STREAM;
-             
              // Check for additional arguments: pitch, silent mode, time delay.
              // Syntax: trigger pitch s delay
              if (numArgs > 1)
@@ -2423,7 +2962,7 @@ bool chatsounds_logic(CBasePlayer@ pPlayer,string fullArg)
                
                const string pitchArg = Args[1].ToLowercase();
                
-               if (pitchArg=="s" && enable_silent)
+               if (pitchArg=="s" && get_bool_cvar("enable_silent"))
                {
                   silent_mode = true;
                   hide_sprite=true;
@@ -2433,13 +2972,13 @@ bool chatsounds_logic(CBasePlayer@ pPlayer,string fullArg)
                    
                    if (numArgs > 2)
                    {
-                       if (Args[2].ToLowercase()=="s" && enable_silent)
+                       if (Args[2].ToLowercase()=="s" && get_bool_cvar("enable_silent"))
                        {
                           silent_mode = true;
                           hide_sprite=true;
                        }
                        
-                       if (numArgs > 3 && delay_control)
+                       if (numArgs > 3 && get_bool_cvar("delay_control"))
                        {
                           const string delayArg = Args[3].ToLowercase();
                           t_delay = atof(delayArg);
@@ -2449,7 +2988,7 @@ bool chatsounds_logic(CBasePlayer@ pPlayer,string fullArg)
                              g_PlayerFuncs.ClientPrint(pPlayer, HUD_PRINTCENTER, "chatsounds delay must be between 0 and 5 s\n");
                           }
                           
-                          if (interrupt_dict.exists(soundArg) and interrupt_dict_nodelay)
+                          if (interrupt_dict.exists(soundArg) and get_bool_cvar("interrupt_dict_nodelay"))
                           {
                              if (t_delay!=0.0f)
                              {
@@ -2463,11 +3002,11 @@ bool chatsounds_logic(CBasePlayer@ pPlayer,string fullArg)
                        
                    }
                    
-                   if (pitch_control)
+                   if (get_bool_cvar("pitch_control"))
                    {
                
                        if (pitchArg=="?")
-                          pitch = Math.RandomLong(50,200);
+                          pitch = Math.RandomLong(min_pitch,max_pitch);
                        else
                        {
                        
@@ -2478,16 +3017,16 @@ bool chatsounds_logic(CBasePlayer@ pPlayer,string fullArg)
                          else
                          {
                              
-                             if (pitch < 50)
+                             if (pitch < min_pitch)
                              {
-                                 pitch = 50;
-                                 g_PlayerFuncs.ClientPrint(pPlayer, HUD_PRINTCENTER, "chatsounds minimum pitch is 50\n");
+                                 pitch = min_pitch;
+                                 g_PlayerFuncs.ClientPrint(pPlayer, HUD_PRINTCENTER, "chatsounds minimum pitch is "+string(min_pitch)+"\n");
                              }
                                                
-                             else if (pitch > 255)
+                             else if (pitch > max_pitch)
                              {
-                                 pitch = 255;
-                                 g_PlayerFuncs.ClientPrint(pPlayer, HUD_PRINTCENTER, "chatsounds maximum pitch is 255\n");
+                                 pitch = max_pitch;
+                                 g_PlayerFuncs.ClientPrint(pPlayer, HUD_PRINTCENTER, "chatsounds maximum pitch is "+string(max_pitch)+"\n");
                              }       
                          }
                         }
@@ -2519,17 +3058,17 @@ bool chatsounds_logic(CBasePlayer@ pPlayer,string fullArg)
                 
                 anti_spam = false;
                 
-                if (event_no_overlap and triggers_no_overlap.find(soundArg)>=0)
+                if (get_bool_cvar("event_no_overlap") and triggers_no_overlap.find(soundArg)>=0)
                 {
                     if (is_event_overlapping(soundArg))
                        interrupt_player=true;
                 }
                 
-                if (interrupt_event_spam or event_exclusive)
+                if (get_bool_cvar("interrupt_event_spam") or get_bool_cvar("event_exclusive"))
                 {
                     if (player_soundevent[pPlayer_index]!="")
                        interrupt_player=true;
-                    else if (event_exclusive)
+                    else if (get_bool_cvar("event_exclusive"))
                     {
                        if (IsEventPlaying())
                           interrupt_player=true;
@@ -2588,6 +3127,26 @@ bool chatsounds_logic(CBasePlayer@ pPlayer,string fullArg)
              //   snd_file = g_soundfiles_100[0];
              //   SetPlayerBlack(@pPlayer);
              //}
+             else if (soundArg=="truck" && truck_enable)
+             {
+                
+                snd_file = g_soundfiles_truck[0];
+                
+                if (player_soundevent[pPlayer_index]=="truck")
+                {
+                    interrupt_player=true;
+                }
+                else
+                {
+                    
+                    if (!is_event_overlapping("truck"))
+                        truck_kills=0;
+                    
+                    g_Scheduler.SetTimeout("truck_start",t_delay,@pPlayer,pitch);
+                    anti_spam=false;
+                    audio_channel = CHAN_STATIC;
+                }
+             }
              else if (soundArg=="trap" && boobytrap_enable)
              {
                 
@@ -2664,11 +3223,12 @@ bool chatsounds_logic(CBasePlayer@ pPlayer,string fullArg)
                 return true;
              
              
+             
              // Converts player "random" trigger to sound trigger being played
              if (print_extra)
                 print_all_chat(string(pPlayer.pev.netname) + ": " + text_extra);
              
-             if (interrupt_dict.exists(soundArg))
+             if (interrupt_dict.exists(soundArg) or snd_file.Find("hgrunt")!=String::INVALID_INDEX)
                 audio_channel = CHAN_STREAM;
              
              if (soundArg=="speed" && speed_enable)
@@ -2803,7 +3363,7 @@ bool chatsounds_logic(CBasePlayer@ pPlayer,string fullArg)
                          nou_fail[pPlayer_index] = true;
                          
                          num_kills += 1;
-                         announce_kill(pPlayer_gib);
+                         announce_kill(pPlayer_gib,num_kills,fku_pitch);
                          if (g_SoundList.exists("incorrect"))
                          {
                              snd_file = get_trigger_snd_file("incorrect");
@@ -2887,18 +3447,18 @@ bool chatsounds_logic(CBasePlayer@ pPlayer,string fullArg)
              }
              
              
-             
              if (interrupt_player)
              {
                 pPlayer_print_antispam(pPlayer);
                 return false;
              }
-             
+                          
              // Update all player ChatTimes to maximally reduce audio spam
-             if (delay_shared)
+             if (get_bool_cvar("delay_shared"))
                 update_ChatTime(0,t,true);
              
-             const Vector pPlayer_origin = pPlayer.GetOrigin();
+            const Vector pPlayer_origin = pPlayer.GetOrigin();
+            
          	if (soundArg=="payne" && payne_enable)
          	{
          	  anti_spam=false;
@@ -3205,6 +3765,9 @@ bool chatsounds_logic(CBasePlayer@ pPlayer,string fullArg)
          	     float standing_delay = 2.9f*(100/float(pitch));
          	     float standing_total = 11.5f*(100/float(pitch));
          	     
+         	     if (is_event_overlapping("standing") and !hide_sound)
+         	        hide_sound = true;
+         	     
          	     float temp_time = standing_delay;
          	     if (hide_sound) // if another player is joining - no delay
          	        temp_time = 0.01f;
@@ -3339,6 +3902,46 @@ bool chatsounds_logic(CBasePlayer@ pPlayer,string fullArg)
          	}
          	
          	// Make nearby players emit scientist scream sounds
+         	else if (soundArg == 'funky' && get_bool_cvar("funky_spin"))
+         	{
+         	   float funky_distance = 3000.0f;
+         	   float funky_duration = float(interrupt_dict["funky"])*(100.0/float(pitch));
+         	   float funky_updaterate = 1.0f*(100.0/float(pitch));
+                
+                // Make npcs rotate uncontrollably
+                for (int i = 1; i < (g_Engine.maxEntities); i++)
+                {
+                
+                    CBaseEntity@ pEntity = g_EntityFuncs.Instance(g_EngineFuncs.PEntityOfEntIndex(i));
+                    if (pEntity !is null and pEntity.IsMonster() and !pEntity.IsPlayer() and pEntity.IsAlive() and pEntity.IsInWorld() and pEntity.pev.takedamage>DAMAGE_NO)
+                    {
+                    
+                        if (pPlayer_origin.opSub(pEntity.GetOrigin()).Length() <= funky_distance)
+                        {
+                            CBaseMonster@ pMonster = cast<CBaseMonster@>(pEntity);
+                            
+                            CCineMonster@ cMonster = cast<CCineMonster@>(pEntity);
+                            if (cMonster !is null)
+                                g_PlayerFuncs.ClientPrintAll(HUD_PRINTTALK,"cmonster " + string(cMonster.m_iszEntity)+"\n");
+                            
+                            if ( (pMonster !is null) and (cMonster is null) and pMonster.m_MonsterState!=MONSTERSTATE_SCRIPT)
+                            {
+                            
+                            g_PlayerFuncs.ClientPrintAll(HUD_PRINTTALK,string(pMonster.GetClassname())+ " " + string(pMonster.m_MonsterState) +"\n");
+                            
+                            g_Scheduler.SetTimeout("funky_rotate",t_delay,@pMonster,1000.0f/(100.0/float(pitch)),0.0f,funky_duration,funky_updaterate); 
+                            g_Scheduler.SetTimeout("monster_restore",t_delay+funky_duration,@pMonster); 
+                            }
+                             
+                        }
+                    
+                    }
+                    
+                }
+         	
+         	}
+         	
+         	// Make nearby players emit scientist scream sounds
          	else if (soundArg == 'sciteam' && scream_enable)
          	{
          	   anti_spam=false;
@@ -3366,7 +3969,7 @@ bool chatsounds_logic(CBasePlayer@ pPlayer,string fullArg)
                       
                 }
                 
-                // Make alive scientist NPCs scream
+                // Make alive scientist NPCs scream in pain
                 for (int i = 1; i < (g_Engine.maxEntities); i++)
                 {
                 
@@ -3395,12 +3998,12 @@ bool chatsounds_logic(CBasePlayer@ pPlayer,string fullArg)
                 }
          	
          	
-         	if (num_triggers<1)
-         	{
-         	   t_scream_delaystart = 1.85f;
-               t_scream_delaystart *= (100/float(pitch));
-         	   g_Scheduler.SetTimeout("play_sound_cough",t_delay+t_scream_delaystart,@pPlayer,volume,attenuation,pitch);
-         	}
+             	if (num_triggers<1)
+             	{
+             	   t_scream_delaystart = 1.85f;
+                   t_scream_delaystart *= (100/float(pitch));
+             	   g_Scheduler.SetTimeout("play_sound_cough",t_delay+t_scream_delaystart,@pPlayer,volume,attenuation,pitch);
+             	}
          	
          	}
          	
@@ -3411,7 +4014,6 @@ bool chatsounds_logic(CBasePlayer@ pPlayer,string fullArg)
                  g_Scheduler.SetTimeout("create_skull_pPlayer",skull_delay,@pPlayer,pitch);
                  anti_spam=false;
                  hide_sprite=true;
-                 
          	}
          	
          	else if (soundArg == "doot" and doot_enable)
@@ -3440,31 +4042,81 @@ bool chatsounds_logic(CBasePlayer@ pPlayer,string fullArg)
          	   if (pPlayer.IsAlive())
          	   {
          	       float wtfboom_delay = 1.0f*(100/float(pitch));
-             	   g_Scheduler.SetTimeout("explode_pPlayer",t_delay+wtfboom_delay,@pPlayer);
+             	   g_Scheduler.SetTimeout("wtfboom_pPlayer",t_delay+wtfboom_delay,@pPlayer,pitch);
          	   }
          	   else
          	      interrupt_player=true;
      	    
      	    }
+     	   
+     	    else if (snd_file.Find("hgrunt")!=String::INVALID_INDEX)
+            {
+                
+                if (player_soundevent[pPlayer_index]!="")
+                   interrupt_player = true;
+                
+                if (!interrupt_player and !hide_sound)
+                {
+                    float hold_interrupt = 0.2f*(100.0/float(pitch));
+                    anti_spam = false;
+                    pPlayer_event_update(pPlayer,"hgrunt",true); 
+                    g_Scheduler.SetTimeout("pPlayer_event_update",t_delay+hold_interrupt,@pPlayer,"hgrunt",false);
+                }
+                 
+             }
+     	    
+         	
+         	else if (soundArg == "urdead" and !urdead and urdead_enable and g_PlayerFuncs.AdminLevel(pPlayer)>=ADMIN_YES)
+         	{
+             urdead=true;
+             urdead_sweet=false;
+             g_Scheduler.SetTimeout("start_urdead_sweet",t_delay+urdead_delay*(100.0/float(pitch)));
+             g_Scheduler.SetTimeout("end_urdead_sweet",t_delay+(urdead_delay+urdead_hold)*(100.0/float(pitch)));
+             g_Scheduler.SetTimeout("end_urdead",t_delay+(urdead_delay+2.7f)*(100.0/float(pitch)));
+         	}
+         	
          	
          	if (hide_sound or interrupt_player)
          	   hide_sprite = true;
          	
          	if (interrupt_dict.exists(soundArg))
-             {
+            {
                 
                 float hold_interrupt = float(interrupt_dict[soundArg])*(100.0/float(pitch));
+                if (hold_interrupt > max_event_duration)
+                   max_event_duration = hold_interrupt;
+                
                 if (!interrupt_player and !hide_sound)
                 {
-                pPlayer_event_update(pPlayer,soundArg,true);
-                anti_spam = false;
-                g_Scheduler.SetTimeout("pPlayer_event_update",t_delay+hold_interrupt,@pPlayer,soundArg,false);
+                    pPlayer_event_update(pPlayer,soundArg,true);
+                    anti_spam = false;
+                    g_Scheduler.SetTimeout("pPlayer_event_update",t_delay+hold_interrupt,@pPlayer,soundArg,false);
                 }
              
-             }   
+            }
      	    
      	    if (!hide_sound and !interrupt_player)
      	    {
+     	       
+     	       if (get_bool_cvar("heavy_ass") and heavy_stage[pPlayer_index]<4)
+               {
+                  uint current_stage = heavy_stage[pPlayer_index];
+                  if (current_stage==0 and (soundArg=="my" or soundArg=="my!"))
+                     heavy_stage[pPlayer_index] = 1;
+                  else if (current_stage==1 and (soundArg=="ass" or soundArg=="ass!"))
+                     heavy_stage[pPlayer_index] = 2;
+                  else if (current_stage==2 and (soundArg=="is" or soundArg=="is!"))
+                     heavy_stage[pPlayer_index] = 3;
+                  else if (current_stage==3 and (soundArg=="heavy" or soundArg=="heavy!"))
+                  {
+                     g_Scheduler.SetTimeout("heavy_final_stage",t_delay+0.25f*(100.0/float(pitch)),@pPlayer);
+                  }
+                  else if (snd_file.Find("hgrunt")==String::INVALID_INDEX)
+                     heavy_stage[pPlayer_index] = 0;
+                
+               }
+     	       
+     	       
      	       if (t_delay>0.0f)
      	       {
      	         string fun_play_sound;
@@ -3535,6 +4187,14 @@ bool chatsounds_logic(CBasePlayer@ pPlayer,string fullArg)
        	   csmenu(pPlayer,pageArg);
            return true;
         }
+        else if (soundArg==".csadmin")
+        {
+       	   string pageArg="";
+       	   if (numArgs>1)
+       	      pageArg = Args[1].ToLowercase();
+       	   csadminmenu(pPlayer,pageArg);
+           return true;
+        }
         
         return true;
         
@@ -3555,7 +4215,9 @@ HookReturnCode ClientSay(SayParameters@ pParams)
   bool print_chat = chatsounds_logic(pPlayer,full_msg);
   
   if (!print_chat)
+  {
      pParams.ShouldHide = true;
+  }
   
   return HOOK_CONTINUE;
 }
@@ -3584,59 +4246,77 @@ void pPlayer_setscale(CBasePlayer@ pPlayer, float scale = 1.0f)
    pPlayer.pev.scale = scale;
 }
 
-//void monster_rotate(CBaseMonster@ pMonster, float avelocity_y)
-//{
-//   if (pMonster !is null && pMonster.IsAlive())
-//   {
-//       
-//      //g_PlayerFuncs.ClientPrintAll(HUD_PRINTTALK,"\n");
-//       //g_PlayerFuncs.ClientPrintAll(HUD_PRINTTALK,string(pMonster.pev.sequence) + "\n");
-//      //g_PlayerFuncs.ClientPrintAll(HUD_PRINTTALK,string(pMonster.m_GaitActivity) + "\n");
-//       //g_PlayerFuncs.ClientPrintAll(HUD_PRINTTALK,string(pMonster.m_Activity) + " " + string(pMonster.m_IdealActivity) + "\n");
-//       //g_PlayerFuncs.ClientPrintAll(HUD_PRINTTALK,string(pMonster.m_MonsterState) + " " + string(pMonster.m_IdealMonsterState) + " " + string(pMonster.GetIdealState())  + "\n");
-//       //g_PlayerFuncs.ClientPrintAll(HUD_PRINTTALK, string(pMonster.pev.angles.y) + " " +  string(pMonster.pev.ideal_yaw) + " " + string(pMonster.FlYawDiff()) + "\n");
-//       
-//       // pMonster.m_MonsterState == MONSTERSTATE_SCRIPT
-//       // pMonster.m_MonsterState=MONSTERSTATE_IDLE
-//       // pMonster.m_Activity=ACT_IDLE
-//       // MONSTERSTATE_SCRIPT
-//              
-//       if( pMonster.m_Activity==ACT_WALK or pMonster.m_Activity==ACT_RUN or pMonster.m_Activity==ACT_WALK_HURT
-//           or pMonster.m_Activity==ACT_RUN_HURT or pMonster.m_Activity==ACT_WALK_SCARED or pMonster.m_Activity==ACT_RUN_SCARED)
-//       {
-//           pMonster.pev.angles.y = pMonster.pev.ideal_yaw;
-//           pMonster.pev.avelocity.y = 0.0f;
-//       }
-//       else
-//       {
-//           pMonster.pev.avelocity.y = avelocity_y;
-//       }
-//       
-//       
-//       if (pMonster.FlYawDiff()!=0.0f)
-//       {
-//          if (Math.RandomLong(0,100) <= 50)
-//          {
-//             g_Scheduler.SetTimeout("monster_pain",Math.RandomFloat(0,0.1f),@pMonster);
-//          } 
-//          
-//       }
-//   
-//   }
-//}
+void funky_rotate(CBaseMonster@ pMonster, float avelocity_y, float current_t, float total_duration, float funky_updaterate)
+{
+   if (pMonster !is null && pMonster.IsAlive() && current_t<total_duration && is_event_overlapping("funky") and pMonster.m_MonsterState != MONSTERSTATE_SCRIPT)
+   {
+       
+      //g_PlayerFuncs.ClientPrintAll(HUD_PRINTTALK,"\n");
+       //g_PlayerFuncs.ClientPrintAll(HUD_PRINTTALK,string(pMonster.pev.sequence) + "\n");
+      //g_PlayerFuncs.ClientPrintAll(HUD_PRINTTALK,string(pMonster.m_GaitActivity) + "\n");
+       //g_PlayerFuncs.ClientPrintAll(HUD_PRINTTALK,string(pMonster.m_Activity) + " " + string(pMonster.m_IdealActivity) + "\n");
+       //g_PlayerFuncs.ClientPrintAll(HUD_PRINTTALK,string(pMonster.m_MonsterState) + " " + string(pMonster.m_IdealMonsterState) + " " + string(pMonster.GetIdealState())  + "\n");
+       //g_PlayerFuncs.ClientPrintAll(HUD_PRINTTALK, string(pMonster.pev.angles.y) + " " +  string(pMonster.pev.ideal_yaw) + " " + string(pMonster.FlYawDiff()) + "\n");
+       
+       // pMonster.m_MonsterState == MONSTERSTATE_SCRIPT
+       // pMonster.m_MonsterState=MONSTERSTATE_IDLE
+       // pMonster.m_Activity=ACT_IDLE
+       // MONSTERSTATE_SCRIPT
+       
+       //pMonster.pev.avelocity.y = avelocity_y;
+       
+       //pPlayer.pev.velocity=Vector(0.0f,0.0f,0.0f);
+       //pPlayer.pev.avelocity=Vector(0.0f,0.0f,0.0f);
+       //pPlayer.pev.basevelocity=Vector(0.0f,0.0f,0.0f);
+       //pPlayer.pev.movedir=Vector(0.0f,0.0f,0.0f);
+       //pPlayer.pev.punchangle=Vector(0.0f,0.0f,0.0f);
+       //pMonster.pev.pitch_speed=avelocity_y;
+       //pMonster.pev.yaw_speed=avelocity_y;
+       
+       //g_PlayerFuncs.ClientPrintAll(HUD_PRINTTALK,"spin\n");
+              
+       //if( pMonster.m_Activity==ACT_WALK or pMonster.m_Activity==ACT_RUN or pMonster.m_Activity==ACT_WALK_HURT
+       //    or pMonster.m_Activity==ACT_RUN_HURT or pMonster.m_Activity==ACT_WALK_SCARED or pMonster.m_Activity==ACT_RUN_SCARED)
+       //{
+       //    pMonster.pev.angles.y = pMonster.pev.ideal_yaw;
+       //    pMonster.pev.avelocity.y = 0.0f;
+       //}
+       //else
+       //{
+       //    pMonster.pev.avelocity.y = avelocity_y;
+       //}
+       
+       //pMonster.pev.yaw_speed = avelocity_y;
+       pMonster.pev.avelocity.y = avelocity_y;
+       
+       //if (pMonster.FlYawDiff()!=0.0f)
+       //{
+       //   if (Math.RandomLong(0,100) <= 50)
+       //   {
+       //      g_Scheduler.SetTimeout("monster_pain_rotate",Math.RandomFloat(0,0.1f),@pMonster);
+       //   } 
+       //   
+       //}
+       
+       //g_Scheduler.SetTimeout("monster_pain_rotate",Math.RandomFloat(0,0.1f),@pMonster);
+       
+       g_Scheduler.SetTimeout("funky_rotate",funky_updaterate,@pMonster,avelocity_y,current_t+funky_updaterate,total_duration,funky_updaterate);
+   
+   }
+}
 
-//void monster_restore(CBaseMonster@ pMonster)
-//{
-//   if (pMonster !is null && pMonster.IsAlive())
-//   {
-//      pMonster.pev.angles.y = pMonster.pev.ideal_yaw;
-//      //pMonster.pev.ideal_yaw = 0.0f;
-//      pMonster.pev.avelocity.y = 0.0f;
-//      //pMonster.m_MonsterState = MONSTERSTATE_SCRIPT;
-//      //pMonster.m_IdealMonsterState = MONSTERSTATE_SCRIPT;
-//      //pMonster.ChangeSchedule(restore_schedule);
-//   }
-//}
+void monster_restore(CBaseMonster@ pMonster)
+{
+   if (pMonster !is null && pMonster.IsAlive())
+   {
+      pMonster.pev.angles.y = pMonster.pev.ideal_yaw;
+      //pMonster.pev.ideal_yaw = 0.0f;
+      pMonster.pev.avelocity.y = 0.0f;
+      //pMonster.m_MonsterState = MONSTERSTATE_SCRIPT;
+      //pMonster.m_IdealMonsterState = MONSTERSTATE_SCRIPT;
+      //pMonster.ChangeSchedule(restore_schedule);
+   }
+}
 
 void monster_pain(CBaseMonster@ pMonster)
 {
@@ -3647,6 +4327,16 @@ void monster_pain(CBaseMonster@ pMonster)
    }
 }
 
+void monster_pain_rotate(CBaseMonster@ pMonster)
+{
+   if (pMonster !is null)
+   {
+       if (pMonster.IsAlive() and (pMonster.pev.yaw_speed!=0.0f or pMonster.FlYawDiff()!=0.0f))
+          pMonster.PainSound();
+   }
+}
+
+
 void gib_player(CBasePlayer@ pPlayer)
 {
 
@@ -3654,15 +4344,33 @@ void gib_player(CBasePlayer@ pPlayer)
     {
         g_EntityFuncs.SpawnRandomGibs(pPlayer.pev,Math.RandomLong(10,100), 1);
         if (pPlayer.IsAlive())
-           g_AdminControl.KillPlayer(pPlayer,0);
+        {
+           //pPlayer.Killed(pPlayer.pev,GIB_ALWAYS);
+           pPlayer.TakeDamage(pPlayer.pev,pPlayer.pev,5000.0f,DMG_ALWAYSGIB);
+           //g_AdminControl.KillPlayer(pPlayer,0.0f);
+           //pPlayer.pev.deadflag = DEAD_DYING;
+           //pPlayer.CallGibMonster();
+           //pPlayer.GibMonster();
+           //pPlayer.pev.renderamt = 0;
+           //pPlayer.pev.health = 0;
+           //pPlayer.pev.armorvalue = 0;
+           //g_SoundSystem.PlaySound( pPlayer.edict(), CHAN_AUTO, "common/bodysplat.wav", 1.0f, 1.0f );
+           
+           if (pPlayer.IsAlive())
+           {
+              pPlayer.Killed(pPlayer.pev,GIB_ALWAYS);
+           }
+           
+        }
     }
+    
 
 } 
 
 //SetTimeout doesn't work with enums
 void play_sound_zombie(CBasePlayer@ pPlayer,int in_pitch)
 {
-   if (pPlayer.IsConnected() and pPlayer !is null)
+   if (pPlayer.IsConnected() and pPlayer !is null and player_soundevent[pPlayer.entindex()-1]=="")
        play_sound(pPlayer,CHAN_STREAM,g_soundfile_zombie_autotune,1.0f,0.3f,in_pitch,true);
 }
 
@@ -3707,6 +4415,27 @@ void respond_bazinga(CBasePlayer@ pPlayer,int pitch)
    }
 }
 
+HookReturnCode MonsterTakeDamage(DamageInfo@ dmg_info)
+{
+    if (urdead_sweet)
+    {
+        CBaseEntity@ pVictim = dmg_info.pVictim;
+        if (pVictim !is null and !pVictim.IsPlayer() and pVictim.IsMonster() and pVictim.IsAlive() and !pVictim.IsPlayerAlly())
+        {
+           
+           CBaseEntity@ pAttacker = dmg_info.pAttacker;
+           if (pAttacker !is null and pAttacker.IsPlayer())
+           {
+               CBaseMonster@ pMonster = cast<CBaseMonster@>(pVictim);
+               if (pMonster !is null)
+                  pMonster.CallGibMonster();
+           }
+           
+        }
+    }
+    
+    return HOOK_CONTINUE;
+}
 
 void play_sound_cough(CBasePlayer@ pPlayer,float volume=1.0f,float attenuation=0.3f,int pitch=100)
 {
@@ -3765,7 +4494,7 @@ int pitch=100,bool setOrigin=true,bool hide_sprite=false,bool anti_spam=false)
 }
 
 //Emit sound from pPlayer; if setOrigin=true, sound will follow pPlayer position
-void play_sound(CBasePlayer@ pPlayer,SOUND_CHANNEL audio_channel,string snd_file,
+void play_sound(CBasePlayer@ pPlayer,SOUND_CHANNEL input_audio_channel,string snd_file,
                 float volume=1.0f,float attenuation=0.3f,int pitch=100,
                 bool setOrigin=true,bool hide_sprite=false, bool anti_spam=false)
 {
@@ -3779,17 +4508,17 @@ void play_sound(CBasePlayer@ pPlayer,SOUND_CHANNEL audio_channel,string snd_file
     // Check if sound should not play due to audio de-clutter features
     if (anti_spam)
     {
-        if (chatsounds_only_alive)
+        if (get_bool_cvar("chatsounds_only_alive"))
             if (pPlayer.GetObserver().IsObserver() or !pPlayer.IsAlive())
                return;
         
-        if (event_no_other_sounds)
+        if (bool(g_bool_cvars["event_no_other_sounds"]))
         {
             if (player_soundevent[pPlayer_index]!="")
                return;
         }
         
-        if (!ignore_delay)
+        if (!get_bool_cvar("ignore_delay"))
         {
         
            float d = t - get_SoundTime(pPlayer_index);
@@ -3799,8 +4528,13 @@ void play_sound(CBasePlayer@ pPlayer,SOUND_CHANNEL audio_channel,string snd_file
         }
     }
     
+    
     update_SoundTime(pPlayer_index,t);
-
+    
+    SOUND_CHANNEL audio_channel = input_audio_channel;
+    if (get_bool_cvar("no_overlap"))
+       audio_channel = CHAN_STREAM;
+    
     if (all_volumes_1)
        g_SoundSystem.PlaySound(pPlayer.edict(),audio_channel,snd_file,volume,attenuation,0,pitch,0,setOrigin,pPlayer.pev.origin);
     else
@@ -3842,6 +4576,7 @@ HookReturnCode ClientPutInServer(CBasePlayer@ pPlayer)
   array_reload[pPlayer_index] = false;
   pPlayer_setscale(pPlayer);
   pPlayer_event_update(pPlayer,"");
+  heavy_stage[pPlayer_index]=0;
   
   // Check if a new player with a different name has taken up the player slot. If so, reset volume to 1.
   if (arr_netnames[pPlayer_index] != pPlayer.pev.netname)
@@ -3857,7 +4592,7 @@ HookReturnCode PlayerSpawn(CBasePlayer@ pPlayer)
   if (race_happening)
      clients_ignorespeed[pPlayer.entindex()-1]=true;
   
-  if (spawnsounds_enable)
+  if (spawnsounds_enable and player_soundevent[pPlayer.entindex()-1]=="")
   {
       if ((pPlayer.HasNamedPlayerItem("weapon_9mmhandgun") !is null or pPlayer.HasNamedPlayerItem("weapon_glock") !is null) and !spawn_cooldown)
       {
@@ -3869,6 +4604,7 @@ HookReturnCode PlayerSpawn(CBasePlayer@ pPlayer)
   
   array_imded[pPlayer.entindex()-1]=false;
   arr_antispam[pPlayer.entindex()-1]=0.0f;
+  heavy_stage[pPlayer.entindex()-1]=0;
   
   return HOOK_CONTINUE;
 }
@@ -3878,7 +4614,7 @@ HookReturnCode PlayerKilled(CBasePlayer@ pPlayer, CBaseEntity@ pAttacker, int iG
     if (race_happening)
        clients_ignorespeed[pPlayer.entindex()-1]=true;
     
-    if (player_die_interrupt and player_soundevent[pPlayer.entindex()-1]!="wtfboom")
+    if (get_bool_cvar("player_die_interrupt") and player_soundevent[pPlayer.entindex()-1]!="wtfboom")
     {
         g_SoundSystem.PlaySound(pPlayer.edict(),CHAN_STREAM,g_soundfile_silence,1.0f,0.3f,0,100,0,true,pPlayer.pev.origin);
         g_SoundSystem.PlaySound(pPlayer.edict(),CHAN_AUTO,g_soundfile_silence,1.0f,0.3f,0,100,0,true,pPlayer.pev.origin);

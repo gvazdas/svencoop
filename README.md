@@ -30,7 +30,7 @@ Here is a full list of these custom triggers:
 
 random nishiki trap desperate careless dental sciteam scream petition zombie
 bimbos payne speed caramel wtfboom standing bug imded hammy stalker nomatter
-lamour weartie mymovie doot basedcringe fku nou fuckbees bazinga
+lamour weartie mymovie doot basedcringe fku nou fuckbees bazinga urdead truck
 
 ## Commands (chat or console)
 .cs - display chatsounds tutorial.
@@ -40,6 +40,8 @@ lamour weartie mymovie doot basedcringe fku nou fuckbees bazinga
 .listsounds - display chatsounds in console; .listsounds hgrunt to show only HECU sounds.
 
 .csvolume number - set chatsounds volume between 0.0 and 1.0 (default 1.0).
+
+.csadmin - front panel for admins. Some settings can be toggled between ON/OFF.
 
 ## Adding your own sound files
 
@@ -61,7 +63,7 @@ See https://github.com/wootguy/ChatSounds for more information about audio perfo
 ## Modifying script settings
 
 A control panel is provided to customize script behavior to your taste.
-Open ChatSounds.as, starting at line 15 you will find settings that can be changed.
+Open ChatSounds.as, starting at line 18 you will find settings that can be changed.
 Various features can be enabled or disabled by setting their flags to true or false.
 You will also find additional audio de-clutter and player interruption flags that are disabled by default.
 

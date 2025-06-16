@@ -330,7 +330,7 @@ tank chat/tank.wav
 tank2 chat/tank2.wav
 tbc chat/tbc.wav
 tom chat/tom_scream.wav
-ugly chat/ugly.wav
+ugly2 chat/ugly.wav
 unf chat/unf.wav
 urdead chat/urdead.wav
 vent chat/vent.wav
@@ -842,3 +842,7 @@ lol3 chat/up13/lol1.wav
 lol4 chat/up13/lol2.wav
 lol5 chat/up13/lol3.wav
 lol6 chat/up13/lol4.wav
+
+easy chat/up13/easy.wav
+
+ugly chat/up13/engi_ugly.wav
