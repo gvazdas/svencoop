@@ -1,7 +1,8 @@
 # Quick setup
 1. Copy scripts, sound and sprites into svencoop_addon/.
 2. Open svencoop/default_plugins.txt, add the scripts there to activate them.
-An example default_plugins.txt that activates all the scripts in this repository is provided.
+If you do not know how to do this, an example "default_plugins.txt" is provided in this repository: copy it to svencoop/ and overwrite to activate the scripts from this repository.
+Note that this will overwrite any other custom scripts you may have activated in default_plugins.txt.
 
 # ChatSounds
 
@@ -26,11 +27,11 @@ delay (default 0): in seconds, how long to wait before emitting the sound.
 Some triggers do more than just play sound files;
 some will randomize sounds from a preset list, others will change player glow,
 a few will make nearby players emit sounds, a couple will mess with the game engine, heal players, etc.
-Here is a full list of these custom triggers:
+Here is a full list of scripted triggers:
 
 random nishiki trap desperate careless dental sciteam scream petition zombie
 bimbos payne speed caramel wtfboom standing bug imded hammy stalker nomatter
-lamour weartie mymovie doot basedcringe fku nou fuckbees bazinga urdead truck
+lamour weartie mymovie doot basedcringe fku nou fuckbees bazinga urdead truck deez
 
 ## Commands (chat or console)
 .cs - display chatsounds tutorial.
@@ -48,9 +49,9 @@ lamour weartie mymovie doot basedcringe fku nou fuckbees bazinga urdead truck
 Modify scripts/plugins/ChatSounds.txt. Each line contains a trigger and its path.
 
 Sounds can be located in svencoop/sound/ or svencoop_addon/sound/
-(you should place custom content in svencoop_addon).
+(you should place custom content in svencoop_addon/).
 
-Multiple files can be assigned to a trigger. A random sound from all assigned files will play.
+Multiple files can be assigned to the same trigger. A random sound from all assigned sounds will play.
 
 ## Recommended audio file format
 

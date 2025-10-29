@@ -1,7 +1,13 @@
+affirmative hgrunt/affirmative.wav
+affirmative! hgrunt/affirmative!.wav
+all hgrunt/all.wav
+all! hgrunt/all!.wav
 ass hgrunt/ass.wav
 ass! hgrunt/ass!.wav
 shit hgrunt/shit.wav
 shit! hgrunt/shit!.wav
+mister hgrunt/mister.wav
+mister! hgrunt/mister!.wav
 bogies hgrunt/bogies.wav
 bogies! hgrunt/bogies!.wav
 that hgrunt/that.wav
@@ -19,8 +25,11 @@ your hgrunt/your.wav
 your! hgrunt/your!.wav
 you hgrunt/you.wav
 you! hgrunt/you!.wav
+he hgrunt/he!.wav
 here hgrunt/here.wav
 here! hgrunt/here!.wav
+hell hgrunt/hell.wav
+hell! hgrunt/hell!.wav
 my hgrunt/my.wav
 my! hgrunt/my!.wav
 is hgrunt/is.wav
@@ -101,7 +110,21 @@ for hgrunt/four.wav
 for! hgrunt/four!.wav
 people hgrunt/people.wav
 people! hgrunt/people!.wav
-
+kick hgrunt/kick!.wav
+will hgrunt/will!.wav
+move hgrunt/move.wav
+move! hgrunt/move!.wav
+maintain hgrunt/maintain.wav
+maintain! hgrunt/maintain!.wav
+no!! hgrunt/no.wav
+no!!! hgrunt/no!.wav
+nothing hgrunt/nothing.wav
+nothing! hgrunt/nothing!.wav
+oh hgrunt/oh!.wav
+weird hgrunt/weird.wav
+weird! hgrunt/weird!.wav
+yes!! hgrunt/yes.wav
+yes!!! hgrunt/yes!.wav
 
 accelerating vox/accelerating.wav
 vass vox/ass.wav
@@ -286,6 +309,7 @@ no2 chat/no2.wav
 no3 chat/no3.wav
 no1 chat/no4.wav
 no4 chat/nomario.wav
+no5 chat/up13/LARA_NO.wav
 nope2 chat/nope.wav
 nowant chat/nowant.wav
 noway! chat/noway.wav
@@ -396,6 +420,7 @@ hungry chat/hungry.wav
 letsrock chat/letsrock.wav
 mmmsoup chat/mmmsoup.wav
 money chat/money.wav
+moneymoney chat/up14/money.wav
 mymovie chat/mymovie.wav
 nishiki chat/nishiki.wav
 nouse chat/nouse.wav
@@ -632,6 +657,8 @@ stfu chat/up5/stfu.wav
 eli chat/up5/eli.wav
 
 medic chat/medic1.wav
+medic chat/up14/drugs.wav
+drugs chat/up14/drugs.wav
 meedic chat/medic2.wav
 
 fk chat/up6/fuck.wav
@@ -691,6 +718,7 @@ come chat/up9/come.wav
 fiddle chat/up9/fiddle.wav
 grigori chat/up9/grigori.wav
 lawyer chat/up9/lawyer.wav
+feet chat/up9/lawyer.wav
 peter chat/up9/peter.wav
 valve? chat/up9/valve2.wav
 1guy chat/up9/1guy.wav
@@ -837,7 +865,9 @@ computer chat/up12/computer.wav
 
 bazinga chat/up13/bazinga1.wav
 bazinga chat/up13/bazinga2.wav
+bazinga chat/up13/bazinga3.wav
 seinfeld chat/up13/seinfeld.wav
+seinlol chat/up13/seinlol.wav
 lol3 chat/up13/lol1.wav
 lol4 chat/up13/lol2.wav
 lol5 chat/up13/lol3.wav
@@ -846,3 +876,30 @@ lol6 chat/up13/lol4.wav
 easy chat/up13/easy.wav
 
 ugly chat/up13/engi_ugly.wav
+
+deez chat/up13/deez1a.wav
+deez chat/up13/deez1b.wav
+
+bean chat/up13/bean.wav
+
+thisguy chat/up13/thisguy.wav
+
+scooby chat/up13/scooby1.wav
+scooby chat/up13/scooby2.wav
+
+bigger chat/up14/bigger1.wav
+bigger chat/up14/bigger2.wav
+bigger chat/up14/bigger3.wav
+bigger chat/up14/bigger4.wav
+bigger chat/up14/bigger5.wav
+bigger chat/up14/bigger6.wav
+
+wankers chat/up14/wankers.wav
+loadsemone chat/up14/loadsemone.wav
+
+woody.mp3 chat/up14/woody.wav
+luigi aslave/slv_word5.wav
+
+bread chat/up14/bread.wav
+
+picard chat/up14/picard.wav
