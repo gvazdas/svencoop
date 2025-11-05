@@ -11,7 +11,7 @@ Current Status: Stable, report bugs on forums.
 Documentation: https://github.com/MrOats/AngelScript_SC_Plugins/wiki/RockTheVote.as
 */
 
-// gvazdas 2024: fixed some bugs, added premature end to voting.
+// gvazdas 2024-2025: fixed some bugs, added early end to voting, and partial string matching for nominate.
 
 final class RTV_Data
 {
@@ -541,7 +541,7 @@ void NomPush(const CCommand@ pArguments, CBasePlayer@ pPlayer)
   if (pArguments.ArgC() == 2)
   {
 
-    NominateMap(pPlayer, pArguments.Arg(1));
+    NominateMap(pPlayer,pArguments.Arg(1));
 
   }
   else if (pArguments.ArgC() == 1)
@@ -781,8 +781,8 @@ void NominateMap( CBasePlayer@ pPlayer, string szMapName )
 
   if ( mapList.find( szMapName ) < 0 )
   {
-
-    MessageWarnPlayer( pPlayer, "Map does not exist." );
+    NominateMenu(pPlayer,szMapName);
+    //MessageWarnPlayer( pPlayer, "Map does not exist." );
     return;
 
   }
@@ -854,36 +854,55 @@ void nominate_MenuCallback( CTextMenu@ nommenu, CBasePlayer@ pPlayer, int page, 
 
 }
 
-void NominateMenu( CBasePlayer@ pPlayer )
+void NominateMenu(CBasePlayer@ pPlayer, string filter="")
 {
 
-      @nommenu = CTextMenu(@nominate_MenuCallback);
-      nommenu.SetTitle("Nominate...");
+      array<string> mapList;
+      mapList.resize(0);
+      string curr_map = "";
+      
+      string filter_trim = filter;
+      filter_trim.Trim();
+      bool check_filter = !filter_trim.IsEmpty();
 
-      array<string> mapList = maplist;
-
-      //Remove any maps found in the previous map exclusion list or force nominated maps
-      for (uint i = 0; i < mapList.length();)
+      for (uint i = 0; i < maplist.length(); i++)
       {
-
-        if ((prevmaps.find(mapList[i]) >= 0))
-          mapList.removeAt(i);
-        else if((forcenommaps.find(mapList[i]) >= 0))
-          mapList.removeAt(i);
-        else
-          ++i;
+      
+        curr_map = maplist[i];
+        if (check_filter)
+        {
+           if (curr_map.Find(filter_trim)==String::INVALID_INDEX)
+              continue;
+        }
+        
+        if ( not ((prevmaps.find(curr_map) >= 0) or (forcenommaps.find(curr_map) >= 0)) )
+           mapList.insertLast(curr_map);
 
       }
 
-      mapList.sortAsc();
-
-      for (uint i = 0; i < mapList.length(); i++)
-        nommenu.AddItem( mapList[i], any(mapList[i]));
-
-      if (!(nommenu.IsRegistered()))
-        nommenu.Register();
-
-      nommenu.Open( 0, 0, pPlayer );
+      
+      if (mapList.length()>1)
+      {
+          mapList.sortAsc();
+          @nommenu = CTextMenu(@nominate_MenuCallback);
+          nommenu.SetTitle("Nominate...");
+    
+          for (uint i = 0; i < mapList.length(); i++)
+            nommenu.AddItem( mapList[i], any(mapList[i]));
+    
+          if (!(nommenu.IsRegistered()))
+            nommenu.Register();
+    
+          nommenu.Open( 0, 0, pPlayer );
+      }
+      else if (mapList.length()==1)
+      {
+          NominateMap(pPlayer,mapList[0]);
+      }
+      else
+      {
+          MessageWarnPlayer( pPlayer, "Map does not exist or was already played." );
+      }
 
 }
 
