@@ -3,7 +3,7 @@
 
 // (gvazdas) Credits:
 // Thanks to Vent Xekart, zyiks, IronBar, Robotnik, AriesToffle, ngh, mumblzz, ShaunOfTheLive, Keyboard Argonian, Chance
-// Lil Ole Fella, Hatsune Miku Fan, Honest Tom's Discount Beef, Mralexs for testing and help
+// Lil Ole Fella, Hatsune Miku Fan, Honest Tom's Discount Beef, Mralexs, Rockman, Raykeno for testing and help
 // Thanks to everyone in the Sven Co-Op Developers Discord for helping with goldsource non-sense
 // Extreme thanks to Reagy, IronBar and ngh for hosting our Sven Co-Op events
 // Created for the Knockout.chat community
@@ -80,7 +80,8 @@ dictionary g_bool_cvars =
 {"wtfboom", true}, // "wtfboom", player uses all explosive ammo to explode
 {"standing", true}, // "standing", speeds up player melee
 {"imded",true}, // "imded", gibs player
-{"nomatter",true} // "nomatter" + "stalker" timing game heals armor
+{"nomatter",true}, // "nomatter" + "stalker" timing game heals armor
+{"piss",true} // "piss" produces piss. im sorry.
 };
 
 /// 
@@ -141,6 +142,7 @@ const dictionary interrupt_dict =
 {"urdead", 3.0f},
 //{"truck", 5.0f},
 {"deez", 4.0f},
+{"piss", 5.0f},
 {"seinlol", 13.0f}
 };
 
@@ -197,11 +199,12 @@ void print_cs(CBasePlayer@ pPlayer)
     //   pPlayer_event_update(pBot,"",true);
     //    arr_SoundTimes[pBot.entindex()-1] = 0.0f;
     //    arr_ChatTimes[pBot.entindex()-1] = 0.0f;
-    //    bool print_chat = chatsounds_logic(pBot,"truck");
+    //    //bool print_chat = chatsounds_logic(pBot,"truck");
+    //    bool print_chat = chatsounds_logic(pBot,"piss");
     //}
     
     NetworkMessage title( MSG_ONE_UNRELIABLE, NetworkMessages::ServerName, pPlayer.edict() );
-    title.WriteString("Chatsounds (v1.41) Tutorial");
+    title.WriteString("Chatsounds (v1.43) Tutorial");
     title.End();
     
     uint iChars = 0;
@@ -733,10 +736,132 @@ void listsounds(CBasePlayer@ pPlayer, string special="")
 
 
 
+
+
+
 ////
 
 int fk_pitch = 100;
 
+
+////
+
+// "piss" -- scripts by w00tguy github.com/wootguy/Fluids/blob/master/PeePeePooPoo.as
+
+const string pee_sprite = "sprites/pee.spr";
+//const string pee_sprite = "sprites/blood.spr";
+//onst string pee_sprite = "sprites/blooddrop.spr";
+//const string pee_sprite = "sprites/blood_01.spr";
+//const string pee_sprite = "sprites/bloodspray.spr";
+//const string pee_sprite = "sprites/blood_chnk.spr";
+//const string pee_sprite = "sprites/nm_blood.spr";
+
+void peepee(EHandle h_plr, float strength, int squirts_left, bool isTest)
+{
+	CBasePlayer@ plr = cast<CBasePlayer@>(h_plr.GetEntity());
+	
+	if (plr is null or !plr.IsConnected() or strength <= 0)
+	{
+		return;
+	}
+
+	Vector pos, angles;	
+	pos = plr.pev.origin;
+	
+	if (plr.IsAlive())
+	{
+    	angles = plr.pev.v_angle;
+    	angles.x -= 10;
+    	if (angles.x < 0)
+    	   angles.x = Math.max(angles.x * 2, -75);
+	}
+	else
+	{
+	   angles=Vector(-90.0f,0.0f,0.0f);
+	   if (squirts_left>1)
+	      squirts_left = 1;
+	   if (strength>1.0f)
+	      strength/=2.0f;
+	   pos.z -= 30.0f;
+	}
+	
+	//g_PlayerFuncs.ClientPrintAll(HUD_PRINTTALK, angles.ToString()+"\n");
+	
+	Math.MakeVectors(angles);
+	
+	Vector dir = g_Engine.v_forward;
+	
+	//float speed = strength > 0.5f ? 1.0f : strength / 0.5f;
+	float speed = 3.0f * strength;
+	int count = strength > 0.5f ? 2 : 1;
+	
+	NetworkMessageDest msgType = isTest ? MSG_ONE_UNRELIABLE : MSG_BROADCAST;
+	edict_t@ dest = isTest ? @plr.edict() : null;
+	string model = pee_sprite;
+	
+	if (plr.pev.waterlevel >= WATERLEVEL_WAIST)
+		te_firefield(plr.pev.origin, 16, model, count, 8, 255, msgType, dest);
+	else
+	{
+		Vector peedir = dir*50 + (dir*150*speed);
+		
+		count = isTest ? 1 : count;
+		int life = isTest ? 0 : 255;
+		int flags = isTest ? 0 : 4;		
+		te_breakmodel(pos, Vector(0,0,0), peedir + plr.pev.velocity, 1, model, count, life, flags, msgType, dest);
+	}
+	
+	float delay = isTest ? 0.1f : 0.05f;
+	if (strength < 0.1f && Math.RandomLong(0,2) == 0 && squirts_left > 0) {
+		delay += Math.RandomFloat(0.3, 0.7);
+		squirts_left--;
+	}
+	
+	g_Scheduler.SetTimeout("peepee", delay, h_plr, strength*0.995f-0.005f, squirts_left, isTest);
+}
+
+void te_breakmodel(Vector pos, Vector size, Vector velocity, 
+	uint8 speedNoise=16, string model="models/hgibs.mdl", 
+	uint8 count=8, uint8 life=0, uint8 flags=20,
+	NetworkMessageDest msgType=MSG_BROADCAST, edict_t@ dest=null)
+{
+	NetworkMessage m(msgType, NetworkMessages::SVC_TEMPENTITY, dest);
+	m.WriteByte(TE_BREAKMODEL);
+	m.WriteCoord(pos.x);
+	m.WriteCoord(pos.y);
+	m.WriteCoord(pos.z);
+	m.WriteCoord(size.x);
+	m.WriteCoord(size.y);
+	m.WriteCoord(size.z);
+	m.WriteCoord(velocity.x);
+	m.WriteCoord(velocity.y);
+	m.WriteCoord(velocity.z);
+	m.WriteByte(speedNoise);
+	m.WriteShort(g_EngineFuncs.ModelIndex(model));
+	m.WriteByte(count);
+	m.WriteByte(life);
+	m.WriteByte(flags);
+	m.End();
+}
+
+
+void te_firefield(Vector pos, uint16 radius=128, 
+	string sprite="sprites/grenade.spr", uint8 count=128, 
+	uint8 flags=30, uint8 life=5,
+	NetworkMessageDest msgType=MSG_BROADCAST, edict_t@ dest=null) 
+{
+	NetworkMessage m(msgType, NetworkMessages::SVC_TEMPENTITY, dest);
+	m.WriteByte(TE_FIREFIELD);
+	m.WriteCoord(pos.x);
+	m.WriteCoord(pos.y);
+	m.WriteCoord(pos.z);
+	m.WriteShort(radius);
+	m.WriteShort(g_EngineFuncs.ModelIndex(sprite));
+	m.WriteByte(count);
+	m.WriteByte(flags);
+	m.WriteByte(life);
+	m.End();
+}
 
 ////
 
@@ -2868,6 +2993,8 @@ void PluginInit()
 
 void MapInit()
 {
+
+  g_Game.PrecacheModel(pee_sprite);
   
   g_soundfiles_precached.resize(0);
   
@@ -3666,7 +3793,6 @@ bool chatsounds_logic(CBasePlayer@ pPlayer,string fullArg)
              //else if (soundArg == '!' and t_delay==0.0f)
              //{
              //  pPlayer.ShowOverheadSprite(g_SpriteName_alert, 51.0f, 3.0f);
-             //  asdf
              //  hide_sprite=true;
              //}
              
@@ -3695,6 +3821,13 @@ bool chatsounds_logic(CBasePlayer@ pPlayer,string fullArg)
          	     t_delay = t_delay + Math.RandomFloat(0.5f,2.0f);
      	      }
          	
+         	}
+         	// pPlayer will emit pee sprite
+         	else if (soundArg == 'piss' && get_bool_cvar("piss") && pPlayer.IsAlive() && !interrupt_player)
+         	{
+             	//peepee(EHandle(pPlayer), 1.0f, 3, false);
+             	g_Scheduler.SetTimeout("peepee",t_delay+3.70*(100/float(pitch)),EHandle(pPlayer),
+             	lcg_randomFloat(0.75f,2.0f,pPlayer.random_seed),lcg_randomInt(2,3,pPlayer.random_seed),false); 
          	}
          	else if (soundArg=="bimbos" && bimbos_enable)
          	{
@@ -4116,7 +4249,7 @@ bool chatsounds_logic(CBasePlayer@ pPlayer,string fullArg)
                 }
      	        else
      	        {
-     	           fk_pitch = fk_pitch + lcg_randomInt(-20,20,pPlayer.random_seed);
+     	           fk_pitch = fk_pitch + lcg_randomInt(-5,5,pPlayer.random_seed);
  	            }
          	}
          	
@@ -4489,7 +4622,8 @@ HookReturnCode ClientDisconnect(CBasePlayer@ pPlayer)
 
   UpdateActivePlayers();
   CheckAllVolumes();
-  pPlayer_event_update(pPlayer,"");
+  //pPlayer_event_update(pPlayer,"");
+  player_soundevent[pPlayer.entindex()-1] = "";
   
   if (race_happening)
      arr_race_distances[pPlayer_index] = 0.0f;
@@ -4853,7 +4987,8 @@ HookReturnCode ClientPutInServer(CBasePlayer@ pPlayer)
   array_imded[pPlayer_index] = false;
   array_reload[pPlayer_index] = false;
   pPlayer_setscale(pPlayer);
-  pPlayer_event_update(pPlayer,"");
+  //pPlayer_event_update(pPlayer,"");
+  player_soundevent[pPlayer.entindex()-1] = "";
   heavy_stage[pPlayer_index]=0;
   
   // Check if a new player with a different name has taken up the player slot. If so, reset volume to 1.

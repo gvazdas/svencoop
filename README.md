@@ -31,7 +31,7 @@ Here is a full list of scripted triggers:
 
 random nishiki trap desperate careless dental sciteam scream petition zombie
 bimbos payne speed caramel wtfboom standing bug imded hammy stalker nomatter
-lamour weartie mymovie doot basedcringe fku nou fuckbees bazinga urdead truck deez
+lamour weartie mymovie doot basedcringe fku nou fuckbees bazinga urdead truck deez piss
 
 ## Commands (chat or console)
 .cs - display chatsounds tutorial.
@@ -75,7 +75,7 @@ Player mouse movement and chat messages will reset the AFK timer.
 
 https://github.com/MrOats/AngelScript_SC_Plugins
 
-## Commands
+## Commands (console)
 
 .respawnall - admin command to respawn all players (if there is a valid spawn point).
 
@@ -103,15 +103,18 @@ Edit Admin_custom_votes.as to change autopass threshold (75%), autopass grace pe
 
 # RTV
 
-Slightly modified version of a script originally credited to MrOats.
+Modified version of a script originally credited to MrOats.
 Fixed some bugs, added fvox countdown sounds. Votes can end prematurely if a threshold of players is met.
+Nominate allows partial string matching to narrow down maps listed in menu.
 
 https://github.com/MrOats/AngelScript_SC_Plugins/blob/master/RockTheVote.as
 
 ## Commands (chat)
 rtv
 
-nominate
+nominate - open nominate menu
+
+nominate map OR nominate partial_map_name - nominate map, or open nominate menu showing matching map names.
 
 # Goto
 
@@ -120,6 +123,8 @@ Slightly modified version of Duk0's script to integrate the chatsounds speed (i.
 https://github.com/Duk0/AngelScript-SvenCoop/blob/master/plugins/Goto.as
 
 ## Commands (chat)
-!goto menu
+!goto
 
 !goto player
+
+!bring player OR !bring all - admins only.

@@ -342,6 +342,8 @@ seriously chat/seriously.wav
 sewer1 chat/sewer1.wav
 sewer2 chat/sewer2.wav
 shit1 chat/shit.wav
+shit1 chat/replica/shit3.wav
+shit1 chat/replica/shit4.wav
 shut chat/shut.wav
 shutup2 chat/shutup2.wav
 snoopin chat/snoopin.wav
@@ -654,6 +656,8 @@ schnappi chat/up5/schnappi.wav
 wat chat/up5/xfiles.wav
 videotape chat/up5/videotape.wav
 stfu chat/up5/stfu.wav
+stfu chat/replica/stfu1.wav
+stfu chat/replica/stfu2.wav
 eli chat/up5/eli.wav
 
 medic chat/medic1.wav
@@ -903,3 +907,16 @@ luigi aslave/slv_word5.wav
 bread chat/up14/bread.wav
 
 picard chat/up14/picard.wav
+
+knock chat/up14/knock.wav
+hslook chat/up14/hslook.wav
+
+fscream chat/up14/fscream.wav
+
+diemf chat/replica/diemf.wav
+rded chat/replica/ded.wav
+ty chat/replica/thanks.wav
+shutup chat/replica/shutup.wav
+
+iggy chat/up14/iggy.wav
+walter chat/up14/walter.wav

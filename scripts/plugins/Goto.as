@@ -9,10 +9,11 @@ dictionary g_dNoGoto;
 //array<string> g_pMovableEntList = { "func_door", "func_train", "func_tracktrain", "func_trackchange", "func_plat", "func_platrot", "func_rotating" };
 GotoMenu g_GotoMenu;
 
+// gvazdas 2025: added !bring command for admins
 void PluginInit()
 {
-	g_Module.ScriptInfo.SetAuthor( "Duko" );
-	g_Module.ScriptInfo.SetContactInfo( "group.midu.cz" );
+	g_Module.ScriptInfo.SetAuthor( "Duko,gvazdas" );
+	g_Module.ScriptInfo.SetContactInfo( "group.midu.cz,knockout.chat/user/3022" );
 
 	g_Hooks.RegisterHook( Hooks::Player::ClientSay, @ClientSay );
 	g_Hooks.RegisterHook( Hooks::Player::ClientDisconnect, @ClientDisconnect );
@@ -53,18 +54,18 @@ HookReturnCode ClientSay( SayParameters@ pParams )
 	if ( pArguments.ArgC() >= 1 )
 	{
 		CBasePlayer@ pPlayer = pParams.GetPlayer();
+		if ( pPlayer is null || !pPlayer.IsConnected() )
+           return HOOK_CONTINUE;
 
 		string szArg = pArguments.Arg( 0 );
 		szArg.Trim();
 		if ( szArg.ICompare( "!goto" ) == 0 )
 		{
-			if ( pPlayer is null || !pPlayer.IsConnected() )
-				return HOOK_CONTINUE;
 
 			string szPartName = pArguments.Arg( 1 );
 			szPartName.Trim();
 
-			if ( szPartName.ICompare( "menu" ) == 0 )
+			if ( szPartName.ICompare( "menu" ) == 0 or szPartName.IsEmpty() )
 			{
 				pParams.ShouldHide = true;
 				g_GotoMenu.Show( pPlayer );
@@ -80,10 +81,15 @@ HookReturnCode ClientSay( SayParameters@ pParams )
 
 			return HOOK_CONTINUE;
 		}
+		else if ( IsPlayerAdmin(pPlayer) and szArg.ICompare("!bring")==0 )
+		{
+			string szPartName = pArguments.Arg( 1 );
+			szPartName.Trim();
+			DoBring(pPlayer,szPartName);
+			return HOOK_CONTINUE;
+		}
 		else if ( szArg.ICompare( "!nogoto" ) == 0 )
 		{
-			if ( pPlayer is null || !pPlayer.IsConnected() )
-				return HOOK_CONTINUE;
 
 			string szSteamId = g_EngineFuncs.GetPlayerAuthId( pPlayer.edict() );
 			
@@ -102,6 +108,167 @@ HookReturnCode ClientSay( SayParameters@ pParams )
 		}
 	}
 	return HOOK_CONTINUE;
+}
+
+void teleport(CBasePlayer@ pDestPlayer,CBasePlayer@ pTeleportee)
+{
+
+    if ( pDestPlayer is null or !pDestPlayer.IsConnected() or pTeleportee is null or !pTeleportee.IsConnected() )
+       return;
+    
+    // EXPERIMENTAL
+    auto_manage_solid(pTeleportee,0.5f,true);
+    // EXPERIMENTAL
+        
+    if ( pDestPlayer.pev.flags & FL_DUCKING != 0 )
+    {
+        pTeleportee.pev.flags |= FL_DUCKING;
+        pTeleportee.pev.view_ofs = Vector( 0.0, 0.0, 12.0 );
+    }
+    pTeleportee.SetOrigin( pDestPlayer.GetOrigin() );
+    pTeleportee.pev.angles.x = pDestPlayer.pev.v_angle.x;
+    pTeleportee.pev.angles.y = pDestPlayer.pev.angles.y;
+    pTeleportee.pev.angles.z = 0; //Do a barrel roll, not
+    pTeleportee.pev.fixangle = FAM_FORCEVIEWANGLES; // Applies the player angles
+}
+
+// Automatically manage pev.solid state of player after they are teleported, to prevent sticking
+void auto_manage_solid(CBasePlayer@ pPlayer, float next=0.5f, bool begin = false)
+{
+    
+    if (pPlayer is null or !pPlayer.IsConnected() or !pPlayer.IsPlayer() or pPlayer.GetObserver().IsObserver())
+        return;
+    
+    
+    if (begin)
+    {
+       //g_PlayerFuncs.ClientPrintAll(HUD_PRINTTALK, "auto_manage_solid begin\n");
+       // If player just teleported: disable collisions
+       if (pPlayer.pev.solid == SOLID_SLIDEBOX)
+       {
+          pPlayer.pev.solid = SOLID_NOT;
+          //g_PlayerFuncs.ClientPrintAll(HUD_PRINTTALK, string(pPlayer.pev.netname)+" collision OFF\n");
+       }
+    }
+    else
+    {
+        
+        //g_PlayerFuncs.ClientPrintAll(HUD_PRINTTALK, "auto_manage_solid\n");
+        
+        if (pPlayer.pev.solid == SOLID_SLIDEBOX)
+           return;
+        
+        // Check if collisions can be enabled
+        bool is_intersecting = false;
+        for (int i = 1; i <= g_Engine.maxClients; i++)
+        {
+           if (i>g_PlayerFuncs.GetNumPlayers())
+              break;
+           CBasePlayer@ pPlayer2 = g_PlayerFuncs.FindPlayerByIndex(i);
+           if (pPlayer2==pPlayer)
+              continue;
+           if (pPlayer2 !is null && pPlayer2.IsConnected() && pPlayer2.IsPlayer() && !pPlayer2.GetObserver().IsObserver())
+           {
+                 CBaseEntity@ pEntity = cast<CBaseEntity@>(pPlayer2);
+                 if (pEntity.IsInWorld() and pPlayer.Intersects(pEntity))
+                 {
+                     is_intersecting=true;
+                     //g_PlayerFuncs.ClientPrintAll(HUD_PRINTTALK, string(pPlayer.pev.netname)+" touching " + string(pPlayer2.pev.netname) + "\n");
+                     break;
+                 }
+           }
+        }
+        
+        if (!is_intersecting)
+        {
+           pPlayer.pev.solid = SOLID_SLIDEBOX;
+           //g_PlayerFuncs.ClientPrintAll(HUD_PRINTTALK, string(pPlayer.pev.netname)+" collision ON\n");
+           //return;
+        }
+    
+    }
+    
+    // If collisions disabled, try again later
+    if (pPlayer.pev.solid != SOLID_SLIDEBOX)
+    {
+       g_Scheduler.SetTimeout("auto_manage_solid",next,@pPlayer,next,false);
+       //g_PlayerFuncs.ClientPrintAll(HUD_PRINTTALK, string(pPlayer.pev.netname)+" "+string(pPlayer.pev.solid)+"\n");
+    }
+
+}
+
+
+// !bring command for admins
+void DoBring(CBasePlayer@ pPlayer, string& in szPartName)
+{ 
+
+	if ( szPartName.IsEmpty() )
+	{
+		g_PlayerFuncs.ClientPrint( pPlayer, HUD_PRINTNOTIFY, "[AS] Usage: !bring <part of name> OR !bring all\n" );
+		return;
+    }
+
+	if ( !pPlayer.IsAlive() )
+		return;
+
+	if ( pPlayer.m_afPhysicsFlags & PFLAG_ONBARNACLE != 0 )
+	{
+		g_PlayerFuncs.ClientPrint( pPlayer, HUD_PRINTNOTIFY, "[AS] Cannot teleport while paralyzed!\n" );
+		return;
+	}
+	
+	CBasePlayer@ pDestPlayer = @pPlayer;
+	string szPlayerName;
+	int iCount = 0;
+	
+	bool do_all = false;
+	if (szPartName == "all")
+	   do_all = true;
+	   
+	CBasePlayer@ pTarget;
+	CBasePlayer@ pFinal;
+
+	for ( int iTarget = 1; iTarget <= g_Engine.maxClients; iTarget++ )
+	{
+		
+		if (iTarget>g_PlayerFuncs.GetNumPlayers())
+           break;
+		
+		@pTarget = g_PlayerFuncs.FindPlayerByIndex( iTarget );
+
+		if ( pTarget is null or !pTarget.IsConnected() or pTarget is pDestPlayer or !pTarget.IsAlive() )
+			continue;
+        
+        if (do_all)
+           teleport(pDestPlayer,pTarget);
+        else
+        {
+    		szPlayerName = pTarget.pev.netname;
+    		if ( int( szPlayerName.Find( szPartName, 0, String::CaseInsensitive ) ) != -1 )
+    		{
+    			@pFinal = pTarget;
+    			iCount++;
+    		}
+		}
+	}
+	
+	if (do_all)
+	   return;
+
+	if ( iCount == 0 or pFinal is null )
+	{
+		g_PlayerFuncs.ClientPrint( pPlayer, HUD_PRINTNOTIFY, "[AS] Could not find '" + szPartName + "' player\n" );
+		return;
+	}
+
+	if ( iCount > 1 )
+	{
+		g_PlayerFuncs.ClientPrint( pPlayer, HUD_PRINTNOTIFY, "[AS] More than one player matches the pattern\n" );
+		return;
+	}
+	
+	teleport(pDestPlayer,pFinal);
+	
 }
 
 HookReturnCode ClientDisconnect( CBasePlayer@ pPlayer )
@@ -191,6 +358,7 @@ bool DoGoto( CBasePlayer@ pPlayer, string& in szPartName, bool bHiden = false )
 	if ( iCount == 0 || pDestPlayer is null )
 	{
 		g_PlayerFuncs.ClientPrint( pPlayer, HUD_PRINTNOTIFY, "[AS] Could not find '" + szPartName + "' player\n" );
+		g_GotoMenu.Show(pPlayer);
 		return true;
 	}
 
@@ -257,25 +425,8 @@ bool DoGoto( CBasePlayer@ pPlayer, string& in szPartName, bool bHiden = false )
  		return false;
     }
  	g_flWaitTime[iPlayer] = g_Engine.time;
-
-	//Duck
-	if ( pDestPlayer.pev.flags & FL_DUCKING != 0 )
-	{
-		pPlayer.pev.flags |= FL_DUCKING;
-		pPlayer.pev.view_ofs = Vector( 0.0, 0.0, 12.0 );
-	//	pPlayer.pev.view_ofs.z = pDestPlayer.pev.view_ofs.z;
-	}
-	//Teleport
-	pPlayer.SetOrigin( pDestPlayer.GetOrigin() );
-	pPlayer.pev.angles.x = pDestPlayer.pev.v_angle.x;
-	pPlayer.pev.angles.y = pDestPlayer.pev.angles.y;
-	pPlayer.pev.angles.z = 0; //Do a barrel roll, not
-	pPlayer.pev.fixangle = FAM_FORCEVIEWANGLES; // Applies the player angles
-	
-	//if ( bHiden )
-	//	g_PlayerFuncs.ClientPrintAll( HUD_PRINTTALK, "[AS] " + pPlayer.pev.netname + " teleported to " + szPlayerName + "\n" );
-	//else
-	//	g_PlayerFuncs.ClientPrint( pPlayer, HUD_PRINTTALK, "[AS] Teleported to " + szPlayerName + "\n" );
+     
+     teleport(pDestPlayer,pPlayer);
 	
 	return false;
 }
