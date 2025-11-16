@@ -145,7 +145,8 @@ CClientCommand cancelrtv("cancelrtv", "Lets admin cancel an ongoing RTV vote", @
 //Global Vars
 
 CTextMenu@ rtvmenu = null;
-CTextMenu@ nommenu = null;
+//CTextMenu@ nommenu = null;
+array<CTextMenu@> nom_menus(g_Engine.maxClients,null);
 
 array<RTV_Data@> rtv_plr_data;
 array<string> forcenommaps;
@@ -265,11 +266,11 @@ void MapActivate()
     rtvmenu.Unregister();
     @rtvmenu = null;
   }
-  if(@nommenu !is null)
-  {
-    nommenu.Unregister();
-    @nommenu = null;
-  }
+  //if(@nommenu !is null)
+  //{
+  //  nommenu.Unregister();
+  //  @nommenu = null;
+  //}
 
   maplist = GetMapList();
   /*
@@ -726,6 +727,10 @@ void RemoveNominateMap(const CCommand@ pArguments)
 
 void CancelVote(const CCommand@ pArguments)
 {
+  
+  // For testing
+  //CBasePlayer@ pBot = g_PlayerFuncs.CreateBot("Dipshit");
+  //NominateMenu(pBot);
 
   CBasePlayer@ pPlayer = g_ConCommandSystem.GetCurrentPlayer();
   RTV_Data@ rtvdataobj = @rtv_plr_data[pPlayer.entindex() - 1];
@@ -838,25 +843,28 @@ void NominateMap( CBasePlayer@ pPlayer, string szMapName )
 
 }
 
-void nominate_MenuCallback( CTextMenu@ nommenu, CBasePlayer@ pPlayer, int page, const CTextMenuItem@ item)
+void nominate_MenuCallback( CTextMenu@ menu, CBasePlayer@ pPlayer, int page, const CTextMenuItem@ item)
 {
-
+   
   if ( item !is null && pPlayer !is null )
-    NominateMap( pPlayer,item.m_szName );
+    NominateMap(pPlayer,item.m_szName);
 
-  if ( @nommenu !is null && nommenu.IsRegistered() )
-  {
-
-    nommenu.Unregister();
-    @nommenu = null;
-
-  }
+  if ( menu !is null && menu.IsRegistered() )
+    menu.Unregister();
 
 }
 
 void NominateMenu(CBasePlayer@ pPlayer, string filter="")
 {
-
+      
+      if (pPlayer is null or !pPlayer.IsConnected())
+         return;
+         
+      uint i_menu = pPlayer.entindex() - 1;
+      CTextMenu@ nommenu = nom_menus[i_menu];
+      if (nommenu !is null && nommenu.IsRegistered())
+         nommenu.Unregister();
+      
       array<string> mapList;
       mapList.resize(0);
       string curr_map = "";
@@ -884,16 +892,20 @@ void NominateMenu(CBasePlayer@ pPlayer, string filter="")
       if (mapList.length()>1)
       {
           mapList.sortAsc();
-          @nommenu = CTextMenu(@nominate_MenuCallback);
+          //@nommenu = CTextMenu(@nominate_MenuCallback);
+          //CTextMenu@ nommenu;
+          //@nommenu = CTextMenu(@nominate_MenuCallback);
+          @nommenu = CTextMenu(nominate_MenuCallback);
           nommenu.SetTitle("Nominate...");
     
           for (uint i = 0; i < mapList.length(); i++)
             nommenu.AddItem( mapList[i], any(mapList[i]));
     
-          if (!(nommenu.IsRegistered()))
-            nommenu.Register();
-    
-          nommenu.Open( 0, 0, pPlayer );
+          if (nommenu !is null && !nommenu.IsRegistered())
+             nommenu.Register();
+          nommenu.Open(0,0,pPlayer);
+          @nom_menus[i_menu] = nommenu;
+          //g_PlayerFuncs.ClientPrintAll( HUD_PRINTTALK, "menu opened\n");
       }
       else if (mapList.length()==1)
       {

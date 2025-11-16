@@ -110,11 +110,29 @@ HookReturnCode ClientSay( SayParameters@ pParams )
 	return HOOK_CONTINUE;
 }
 
+void _te_pointeffect(Vector pos, NetworkMessageDest msgType=MSG_BROADCAST, edict_t@ dest=null, int effect=TE_SPARKS)
+{
+	NetworkMessage m(msgType, NetworkMessages::SVC_TEMPENTITY, dest);
+	m.WriteByte(effect);
+	m.WriteCoord(pos.x);
+	m.WriteCoord(pos.y);
+	m.WriteCoord(pos.z);
+	m.End();
+}
+
+// Quake particle effect. This one is pretty cool.
+void te_teleport(Vector pos, NetworkMessageDest msgType=MSG_BROADCAST, edict_t@ dest=null)
+{
+	_te_pointeffect(pos, msgType, dest, TE_TELEPORT);
+}
+
 void teleport(CBasePlayer@ pDestPlayer,CBasePlayer@ pTeleportee)
 {
 
     if ( pDestPlayer is null or !pDestPlayer.IsConnected() or pTeleportee is null or !pTeleportee.IsConnected() )
        return;
+    
+    te_teleport(pTeleportee.pev.origin);
     
     // EXPERIMENTAL
     auto_manage_solid(pTeleportee,0.5f,true);

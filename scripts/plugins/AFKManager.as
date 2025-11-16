@@ -329,15 +329,9 @@ final class AFK_Data
                 }
             }   
             
-            justStarted=false;
-            secondsAFK=0;
-            secondsLastWarn=0;
-            g_SecondsTracker[szSteamID] = secondsAFK;
-            afkstatus = NOTAFK;
-            
             if (playerObserving)
             {
-              if (pPlayer.m_flRespawnDelayTime!=0)
+              if (pPlayer.m_flRespawnDelayTime!=0 and secondsAFK>=g_SecondsUntilSpec.GetInt())
               {
                  MessageWarnAllPlayers(pPlayer, szPlayerName + " has returned.");
                  //pPlayer.pev.netname = string_t(szPlayerName);
@@ -347,6 +341,12 @@ final class AFK_Data
               pPlayer.pev.nextthink = g_Engine.time;
               g_PlayerFuncs.ClientPrint(pPlayer, HUD_PRINTCENTER, "");
             }
+            
+            justStarted=false;
+            secondsAFK=0;
+            secondsLastWarn=0;
+            g_SecondsTracker[szSteamID] = secondsAFK;
+            afkstatus = NOTAFK;
       
           }
           
