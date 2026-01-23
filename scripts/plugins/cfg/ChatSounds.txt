@@ -192,6 +192,7 @@ barrel barney/c1a0_ba_hevyes.wav
 maybe barney/maybe.wav
 cya barney/seeya.wav
 hello scientist/hello.wav
+cough scientist/cough.wav
 lol2 hgrunt/c2a3_hg_laugh.wav
 moveup fgrunt/moveup.wav
 scifall scientist/c1a0_sci_catscream.wav
@@ -920,3 +921,8 @@ shutup chat/replica/shutup.wav
 
 iggy chat/up14/iggy.wav
 walter chat/up14/walter.wav
+
+smoke chat/up14/dx_cough.wav
+cig chat/up14/dx_cough.wav
+
+dropship chat/up14/dropship.wav

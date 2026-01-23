@@ -32,6 +32,12 @@ Here is a full list of scripted triggers:
 random nishiki trap desperate careless dental sciteam scream petition zombie
 bimbos payne speed caramel wtfboom standing bug imded hammy stalker nomatter
 lamour weartie mymovie doot basedcringe fku nou fuckbees bazinga urdead truck deez piss
+my ass is heavy
+4 20
+60 9
+6 7
+smoke
+cig
 
 ## Commands (chat or console)
 .cs - display chatsounds tutorial.
