@@ -4,6 +4,8 @@ Updated 2024 by gvazdas:
 1) Added memory retention of client AFK time after map change
 2) Player activity is detected with chat messages, movement, weapon firing, sprays and mouse movement
 3) Players are no longer gibbed on respawn after coming back from AFK
+4) Added cvar bShouldGib which will NODRAW afk players instead of damaging them
+5) Added command .observe which does not throw players back into being alive.
 
 This Source Code Form is subject to the terms of the Mozilla Public
 License, v. 2.0. If a copy of the MPL was not distributed with this
@@ -17,11 +19,14 @@ Documentation: https://github.com/MrOats/AngelScript_SC_Plugins/wiki/AFKManager.
 
 const bool notify_close = true; // "that was close" etc messages in chat
 
+array<bool> observers(g_Engine.maxClients, false); // check if player is observing
+
 const string g_warningsound = "vox/woop.wav";
 array<int> g_WarnIntervals_Sub;
 CClientCommand g_afk("afk", "Print version", @afk_command);
 CClientCommand g_respawnall("respawnall", "Lets admin respawn all players", @respawnall, ConCommandFlag::AdminOnly);
 CClientCommand g_reviveall("reviveall", "Lets admin revive all players", @reviveall, ConCommandFlag::AdminOnly);
+CClientCommand g_observe("observe", "Lets players observe without being forced back into being alive", @observe_command);
 
 void PluginInit()
 {
@@ -39,9 +44,10 @@ void PluginInit()
   g_Hooks.RegisterHook(Hooks::Player::PlayerEnteredObserver, PlayerEnteredObserver);
   g_Hooks.RegisterHook(Hooks::Player::PlayerKilled, PlayerKilled);
   g_Hooks.RegisterHook(Hooks::Game::MapChange, @MapChange);
-
+  
+  @g_ShouldGib = CCVar("bShouldGib", true, "Should players be gibbed for being AFK?", ConCommandFlag::AdminOnly);
   @g_ShouldSpec = CCVar("bShouldSpec", true, "Should player be moved to spectate for being AFK?", ConCommandFlag::AdminOnly);
-  @g_SecondsUntilSpec = CCVar("secondsUntilSpec", 180, "Seconds until player should be moved to Spectate for AFK", ConCommandFlag::AdminOnly);
+  @g_SecondsUntilSpec = CCVar("secondsUntilSpec", 120, "Seconds until player should be moved to Spectate for AFK", ConCommandFlag::AdminOnly);
   @g_ShouldKick = CCVar("bShouldKick", true, "Should player be kicked for being AFK?", ConCommandFlag::AdminOnly);
   @g_SecondsUntilKick = CCVar("secondsUntilKick", 3600, "Seconds until player is kicked for AFK", ConCommandFlag::AdminOnly);
   @g_KickAdmins = CCVar("bKickAdmins", false, "Should admins/owners be kicked for being AFK?", ConCommandFlag::AdminOnly);
@@ -101,7 +107,9 @@ void reviveall(const CCommand@ pArgs)
    for (int i = 1; i <= g_Engine.maxClients; i++)
    {
       CBasePlayer@ pPlayer = g_PlayerFuncs.FindPlayerByIndex(i);
-      if (pPlayer !is null && pPlayer.IsConnected() && pPlayer.IsPlayer() && !pPlayer.IsAlive())
+      if (pPlayer is null || !pPlayer.IsConnected()) continue;
+      if (observers[pPlayer.entindex()-1]) continue;
+      if (pPlayer.IsPlayer() && !pPlayer.IsAlive())
       {
         pPlayer.Revive();
         g_Scheduler.SetTimeout("pPlayer_dead_move", 1.0f, @pPlayer);
@@ -117,38 +125,34 @@ void afk_command(const CCommand@ pArgs)
 
 void afk(const CCommand@ pArgs, CBasePlayer@ pPlayer)
 {
-    g_PlayerFuncs.ClientPrint(pPlayer, HUD_PRINTCONSOLE, "[AFK] version 2025-03-16\n");
+    g_PlayerFuncs.ClientPrint(pPlayer, HUD_PRINTCONSOLE, "[AFK] version 2026-03-04\n");
     g_PlayerFuncs.ClientPrint(pPlayer, HUD_PRINTCONSOLE, "For the latest version go to https://github.com/gvazdas/svencoop\n");
-    g_PlayerFuncs.ClientPrint(pPlayer, HUD_PRINTCONSOLE, "For the latest version go to https://github.com/gvazdas/svencoop\n");
-    
-    //CBasePlayer@ pBot = g_PlayerFuncs.CreateBot("Dipshit");
-    
+}
+
+void observe_command(const CCommand@ pArgs)
+{
+	CBasePlayer@ pPlayer = g_ConCommandSystem.GetCurrentPlayer();
+	observe(@pArgs, @pPlayer);
+}
+
+void observe(const CCommand@ pArgs, CBasePlayer@ pPlayer)
+{
+    observers[pPlayer.entindex()-1] = !(observers[pPlayer.entindex()-1]);
+    if (observers[pPlayer.entindex()-1]) g_PlayerFuncs.SayText(pPlayer, "[AFK] Entering observer mode.\n");
+    else g_PlayerFuncs.SayText(pPlayer, "[AFK] Leaving observer mode.\n");
 }
 
 void gib_player(CBasePlayer@ pPlayer)
 {
-    if (pPlayer.IsConnected() and pPlayer !is null)
+    if (pPlayer !is null && pPlayer.IsConnected() && pPlayer.IsAlive())
     {
         g_EntityFuncs.SpawnRandomGibs(pPlayer.pev,Math.RandomLong(10,100), 1);
-        if (pPlayer.IsAlive())
+        if (g_ShouldGib.GetBool())
         {
-           //pPlayer.Killed(pPlayer.pev,GIB_ALWAYS);
-           pPlayer.TakeDamage(pPlayer.pev,pPlayer.pev,5000.0f,DMG_ALWAYSGIB);
-           //g_AdminControl.KillPlayer(pPlayer,0.0f);
-           //pPlayer.pev.deadflag = DEAD_DYING;
-           //pPlayer.CallGibMonster();
-           //pPlayer.GibMonster();
-           //pPlayer.pev.renderamt = 0;
-           //pPlayer.pev.health = 0;
-           //pPlayer.pev.armorvalue = 0;
-           //g_SoundSystem.PlaySound( pPlayer.edict(), CHAN_AUTO, "common/bodysplat.wav", 1.0f, 1.0f );
-           
-           if (pPlayer.IsAlive())
-           {
-              pPlayer.Killed(pPlayer.pev,GIB_ALWAYS);
-           }
-           
+            pPlayer.TakeDamage(pPlayer.pev,pPlayer.pev,5000.0f,DMG_ALWAYSGIB);
+            if (pPlayer.IsAlive()) pPlayer.Killed(pPlayer.pev,GIB_ALWAYS);
         }
+        else pPlayer.pev.effects |= EF_NODRAW;
     }
 } 
 
@@ -303,12 +307,19 @@ final class AFK_Data
    void CheckAFK()
    {
    
-        if ( (pPlayer !is null) && (pPlayer.IsConnected()) )
+        if ( pPlayer !is null && pPlayer.IsConnected() )
         {
           
           bool playerActive = CheckPlayerActive();
+          bool wants_observe = observers[pPlayer.entindex()-1];
           bool playerObserving = pPlayer.GetObserver().IsObserver();
           bool sub_interval = false;
+          
+          if (wants_observe && !playerObserving)
+          {
+              MoveToSpectate();
+              playerObserving = pPlayer.GetObserver().IsObserver();
+          }
           
           // Player is active
           if (playerActive)
@@ -329,7 +340,7 @@ final class AFK_Data
                 }
             }   
             
-            if (playerObserving)
+            if (playerObserving && !wants_observe)
             {
               if (pPlayer.m_flRespawnDelayTime!=0 and secondsAFK>=g_SecondsUntilSpec.GetInt())
               {
@@ -354,10 +365,8 @@ final class AFK_Data
           else
           {
             
-            if (playerObserving)
-               afkstatus=AFKSPEC;
-            else
-               afkstatus=AFKALIVE;
+            if (playerObserving) afkstatus=AFKSPEC;
+            else afkstatus=AFKALIVE;
             
             secondsAFK+=1;
             g_SecondsTracker[szSteamID] = secondsAFK;
@@ -465,7 +474,7 @@ final class AFK_Data
             
             }
             
-            if (afkstatus==AFKSPEC && g_ShouldSpec.GetBool() && !g_SurvivalMode.IsEnabled() && pPlayer.m_flRespawnDelayTime>=Math.FLOAT_MAX)
+            if (!wants_observe && afkstatus==AFKSPEC && g_ShouldSpec.GetBool() && !g_SurvivalMode.IsEnabled() && pPlayer.m_flRespawnDelayTime>=Math.FLOAT_MAX)
               g_PlayerFuncs.ClientPrint(pPlayer, HUD_PRINTCENTER, GetActionText());
           
           }
@@ -551,6 +560,7 @@ CCVar@ g_ShouldKick;
 CCVar@ g_SecondsUntilKick;
 CCVar@ g_KickAdmins;
 CCVar@ g_WarnInterval;
+CCVar@ g_ShouldGib;
 
 enum Status
 {
@@ -605,6 +615,12 @@ HookReturnCode ClientSay(SayParameters@ pParams)
            pParams.ShouldHide = true;
            return HOOK_HANDLED;
         }
+        else if (firstArg==".observe")
+        {
+           observe(@pArguments, @pPlayer);
+           pParams.ShouldHide = true;
+           return HOOK_HANDLED;
+        }
     
     }
     
@@ -649,7 +665,7 @@ HookReturnCode ClientPutInServer(CBasePlayer@ pPlayer)
     @afk_plr_data[pPlayer.entindex() - 1] = @afkdataobj;
     afkdataobj.Initiate();
     
-    if (afkdataobj.secondsAFK>=g_SecondsUntilSpec.GetInt() && g_ShouldSpec.GetBool())
+    if ( (afkdataobj.secondsAFK>=g_SecondsUntilSpec.GetInt() && g_ShouldSpec.GetBool()) || observers[pPlayer.entindex()-1])
       afkdataobj.MoveToSpectate();
     
     if (g_ShouldKick.GetBool())
@@ -677,7 +693,7 @@ HookReturnCode PlayerSpawn(CBasePlayer@ pPlayer)
         string steamID = g_EngineFuncs.GetPlayerAuthId(pPlayer.edict());
         if (g_SecondsTracker.exists(steamID))
         {
-            if (int(g_SecondsTracker[steamID])>=g_SecondsUntilSpec.GetInt())
+            if (int(g_SecondsTracker[steamID])>=g_SecondsUntilSpec.GetInt() || observers[pPlayer.entindex()-1])
                  afkdataobj.MoveToSpectate();
             else
                g_PlayerFuncs.ClientPrint(pPlayer, HUD_PRINTCENTER, "");
@@ -694,6 +710,7 @@ HookReturnCode ClientDisconnect(CBasePlayer@ pPlayer)
   AFK_Data@ afkdataobj = @afk_plr_data[pPlayer.entindex() - 1];
   afkdataobj.ClearInitTimer();
   @afkdataobj = null;
+  observers[pPlayer.entindex()-1] = false;
   return HOOK_CONTINUE;
 }
 

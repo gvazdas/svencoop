@@ -1,4 +1,4 @@
-//Original code written by incognico (2022). Heavily modified by gvazdas (2024-2025).
+//Original code written by incognico (2022). Heavily modified by gvazdas (2024-2026).
 //incognico wrote the readsounds and listsounds functions
 //sprite and lighting effects from https://github.com/Duk0/AngelScript-SvenCoop/blob/master/plugins/Effects.as
 
@@ -12,6 +12,8 @@
 // TO DO LIST
 // 1. Allow players to mute other players: .csmute - specify part of nickname, or steamid. Internally it should always lock to steamid.
 // 2. Allow players to reduce frequency of chatsounds playing on their client side: .cscooldown.
+// 3. Fix 4-20, 60-9, 6-7 by not preventing spam. Instead have an array of last triggers by clients
+// 4. Fix occassional soundevent not clearing up. This has to do with timers overriding others
 
 //////////////////////////////////////////////////////////////////////////////////////////////
 
