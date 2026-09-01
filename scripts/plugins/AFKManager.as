@@ -803,7 +803,7 @@ void MessageWarnAllPlayers(CBasePlayer@ pPlayer, string msg)
 void SetRespawnTime(CBasePlayer@ pPlayer)
 {
   AFK_Data@ afkdataobj = @afk_plr_data[pPlayer.entindex() - 1];
-  if (afkdataobj is null || afkdataobj.m_afkstatus == NOTAFK) return;
+  if (afkdataobj is null || afkdataobj.afkstatus == NOTAFK) return;
   pPlayer.m_flRespawnDelayTime = Math.FLOAT_MAX;
   return;
 }
